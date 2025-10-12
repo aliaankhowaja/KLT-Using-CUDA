@@ -1,47 +1,68 @@
-# KLT (Kanade-Lucas-Tomasi) Feature Tracker
+# KLT (Kanade-Lucas-Tomasi) Feature Tracker with CUDA
 
-This repository contains an implementation of the KLT feature tracker in CUDA with profiling capabilities.
+This repository contains an implementation of the KLT feature tracker with both CPU and GPU (CUDA) versions, along with profiling capabilities.
 
 ## Building the Code
 
-Navigate to the source directory and compile:
+Navigate to the `src/v2` directory to build the code.
+
+### CPU Version
+
+To compile the CPU version:
 
 ```bash
-cd src/v1
-make all
+cd src/v2
+make cpu
 ```
 
 This will:
 
-1. Compile the KLT library (`libklt.a`)
-2. Build all example programs (`example1` through `example5`)
+1.  Compile the KLT CPU library (`libklt_cpu.a`).
+2.  Build all CPU example programs (`example1_cpu` through `example5_cpu`).
+
+### GPU Version
+
+To compile the GPU version (requires CUDA toolkit):
+
+```bash
+cd src/v2
+make gpu
+```
+
+This will:
+
+1.  Compile the KLT GPU library (`libklt_gpu.a`).
+2.  Build all GPU example programs (`example1_gpu` through `example5_gpu`).
 
 ## Running Examples
 
-### Individual Examples
+You can run each example individually from the `src/v2` directory.
 
-You can run each example individually:
+### CPU Examples
 
 ```bash
-cd src/v1
+cd src/v2
 
-# Run example 1
-./example1
+# Run CPU examples
+./example1_cpu
+./example2_cpu
+# ... and so on for other examples
+```
 
-# Run example 2
-./example2
+### GPU Examples
 
-# Run example 3
-./example3
+```bash
+cd src/v2
 
-# Run example 4
-./example4
-
-# Run example 5
-./example5
+# Run GPU examples
+./example1_gpu
+./example2_gpu
+# ... and so on for other examples
 ```
 
 ## Profiling
+
+TODO: Update for GPU
 
 To run all examples with profiling and generate performance reports:
 
@@ -74,6 +95,6 @@ gprof ./example1 gmon.out > example1.gprof
 To clean compiled files:
 
 ```bash
-cd src/v1
+cd src/v2
 make clean
 ```
