@@ -90,12 +90,12 @@ static void _computeIntensityDifference(
 /*********************************************************************
  * _computeGradientSum
  *
- * Given two gradients and the window center in both images,
+ * CPU implementation: Given two gradients and the window center in both images,
  * aligns the gradients wrt the window and computes the sum of the two 
  * overlaid gradients.
  */
 
-static void _computeGradientSum(
+static void _computeGradientSumCPU(
   _KLT_FloatImage gradx1,  /* gradient images */
   _KLT_FloatImage grady1,
   _KLT_FloatImage gradx2,
@@ -124,15 +124,15 @@ static void _computeGradientSum(
 
 
 static void _computeGradientSumGPU(
-  _KLT_FloatImage gradx1,
+  _KLT_FloatImage gradx1,  /* gradient images */
   _KLT_FloatImage grady1,
   _KLT_FloatImage gradx2,
   _KLT_FloatImage grady2,
   float x1, float y1,      /* feature pos in first frame(??) */
   float x2, float y2,      /* feature pos in second frame(??) */
   int width, int height,   /* tis for tracking window dimensions */
-  _FloatWindow gradx,      /* output variable for summed up x-gradients */
-  _FloatWindow grady)      /* output variable for summed up y-gradients */
+  _FloatWindow gradx,      
+  _FloatWindow grady)      
 {
   register int hw = width/2, hh = height/2;  /* this for center of  the image */
   float g1, g2;  /* calculated gradient values from image 1 and image 2 */
@@ -192,6 +192,31 @@ static void _computeGradientSumGPU(
       
       *grady++ = g1 + g2;
     }
+  }
+}
+
+static void _computeGradientSum(
+  _KLT_FloatImage gradx1,  
+  _KLT_FloatImage grady1,
+  _KLT_FloatImage gradx2,
+  _KLT_FloatImage grady2,
+  float x1, float y1,      
+  float x2, float y2,      
+  int width, int height,   
+  _FloatWindow gradx,      
+  _FloatWindow grady)      
+{
+
+  KLT_BOOL use_gpu = FALSE;  
+  
+  if (use_gpu) {
+    _computeGradientSumGPU(gradx1, grady1, gradx2, grady2,
+                           x1, y1, x2, y2, width, height,
+                           gradx, grady);
+  } else {
+    _computeGradientSumCPU(gradx1, grady1, gradx2, grady2,
+                           x1, y1, x2, y2, width, height,
+                           gradx, grady);
   }
 }
 
