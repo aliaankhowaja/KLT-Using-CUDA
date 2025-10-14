@@ -122,6 +122,79 @@ static void _computeGradientSum(
     }
 }
 
+
+static void _computeGradientSumGPU(
+  _KLT_FloatImage gradx1,
+  _KLT_FloatImage grady1,
+  _KLT_FloatImage gradx2,
+  _KLT_FloatImage grady2,
+  float x1, float y1,      /* feature pos in first frame(??) */
+  float x2, float y2,      /* feature pos in second frame(??) */
+  int width, int height,   /* tis for tracking window dimensions */
+  _FloatWindow gradx,      /* output variable for summed up x-gradients */
+  _FloatWindow grady)      /* output variable for summed up y-gradients */
+{
+  register int hw = width/2, hh = height/2;  /* this for center of  the image */
+  float g1, g2;  /* calculated gradient values from image 1 and image 2 */
+  register int i, j;  /* pixel offsets within the window */
+  
+  float px, py;  /* exact pixel coordinates we will be sampling */
+  int xt, yt;   
+  float ax, ay;  
+  float *ptr;    
+
+  /* Compute values */
+  for (j = -hh ; j <= hh ; j++) 
+  {
+    for (i = -hw ; i <= hw ; i++)  
+    {
+      
+      px = x1 + i;
+      py = y1 + j;
+      xt = (int) px;
+      yt = (int) py;
+      ax = px - xt;
+      ay = py - yt;
+      ptr = gradx1->data + (gradx1->ncols * yt) + xt;
+      g1 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(gradx1->ncols)) + ax   *   ay   * *(ptr+(gradx1->ncols)+1));
+      
+      
+      px = x2 + i;
+      py = y2 + j;
+      xt = (int) px;
+      yt = (int) py;
+      ax = px - xt;
+      ay = py - yt;
+      ptr = gradx2->data + (gradx2->ncols * yt) + xt;
+      g2 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(gradx2->ncols)) + ax   *   ay   * *(ptr+(gradx2->ncols)+1));
+      
+      *gradx++ = g1 + g2;
+      
+      
+      px = x1 + i;
+      py = y1 + j;
+      xt = (int) px;
+      yt = (int) py;
+      ax = px - xt;
+      ay = py - yt;
+      ptr = grady1->data + (grady1->ncols * yt) + xt;
+      g1 = ((1-ax) * (1-ay) * *ptr + ax * (1-ay) * *(ptr+1) + (1-ax) * ay * *(ptr+(grady1->ncols)) + ax * ay * *(ptr+(grady1->ncols)+1));
+      
+      
+      px = x2 + i;
+      py = y2 + j;
+      xt = (int) px;
+      yt = (int) py;
+      ax = px - xt;
+      ay = py - yt;
+      ptr = grady2->data + (grady2->ncols * yt) + xt;
+      g2 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(grady2->ncols)) + ax   *   ay   * *(ptr+(grady2->ncols)+1));
+      
+      *grady++ = g1 + g2;
+    }
+  }
+}
+
 /*********************************************************************
  * _computeIntensityDifferenceLightingInsensitive
  *
