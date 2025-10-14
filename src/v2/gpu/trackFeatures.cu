@@ -9,6 +9,9 @@
 #include <stdlib.h>		/* malloc() */
 #include <stdio.h>		/* fflush() */
 
+/* CUDA includes */
+#include <cuda_runtime.h>
+
 /* Our includes */
 #include "base.h"
 #include "error.h"
@@ -103,14 +106,13 @@ static void _computeGradientSumCPU(
   float x1, float y1,      /* center of window in 1st img */
   float x2, float y2,      /* center of window in 2nd img */
   int width, int height,   /* size of window */
-  _FloatWindow gradx,      /* output */
-  _FloatWindow grady)      /*   " */
+  _FloatWindow gradx,      /* output vars*/
+  _FloatWindow grady)      
 {
   register int hw = width/2, hh = height/2;
   float g1, g2;
   register int i, j;
 
-  /* Compute values */
   for (j = -hh ; j <= hh ; j++)
     for (i = -hw ; i <= hw ; i++)  {
       g1 = _interpolate(x1+i, y1+j, gradx1);
@@ -123,76 +125,81 @@ static void _computeGradientSumCPU(
 }
 
 
-static void _computeGradientSumGPU(
-  _KLT_FloatImage gradx1,  /* gradient images */
-  _KLT_FloatImage grady1,
-  _KLT_FloatImage gradx2,
-  _KLT_FloatImage grady2,
-  float x1, float y1,      /* feature pos in first frame(??) */
-  float x2, float y2,      /* feature pos in second frame(??) */
-  int width, int height,   /* tis for tracking window dimensions */
-  _FloatWindow gradx,      
-  _FloatWindow grady)      
-{
-  register int hw = width/2, hh = height/2;  /* this for center of  the image */
-  float g1, g2;  /* calculated gradient values from image 1 and image 2 */
-  register int i, j;  /* pixel offsets within the window */
-  
-  float px, py;  /* exact pixel coordinates we will be sampling */
-  int xt, yt;   
-  float ax, ay;  
-  float *ptr;    
 
-  /* Compute values */
-  for (j = -hh ; j <= hh ; j++) 
-  {
-    for (i = -hw ; i <= hw ; i++)  
-    {
-      
-      px = x1 + i;
-      py = y1 + j;
-      xt = (int) px;
-      yt = (int) py;
-      ax = px - xt;
-      ay = py - yt;
-      ptr = gradx1->data + (gradx1->ncols * yt) + xt;
-      g1 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(gradx1->ncols)) + ax   *   ay   * *(ptr+(gradx1->ncols)+1));
-      
-      
-      px = x2 + i;
-      py = y2 + j;
-      xt = (int) px;
-      yt = (int) py;
-      ax = px - xt;
-      ay = py - yt;
-      ptr = gradx2->data + (gradx2->ncols * yt) + xt;
-      g2 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(gradx2->ncols)) + ax   *   ay   * *(ptr+(gradx2->ncols)+1));
-      
-      *gradx++ = g1 + g2;
-      
-      
-      px = x1 + i;
-      py = y1 + j;
-      xt = (int) px;
-      yt = (int) py;
-      ax = px - xt;
-      ay = py - yt;
-      ptr = grady1->data + (grady1->ncols * yt) + xt;
-      g1 = ((1-ax) * (1-ay) * *ptr + ax * (1-ay) * *(ptr+1) + (1-ax) * ay * *(ptr+(grady1->ncols)) + ax * ay * *(ptr+(grady1->ncols)+1));
-      
-      
-      px = x2 + i;
-      py = y2 + j;
-      xt = (int) px;
-      yt = (int) py;
-      ax = px - xt;
-      ay = py - yt;
-      ptr = grady2->data + (grady2->ncols * yt) + xt;
-      g2 = ((1-ax) * (1-ay) * *ptr + ax   * (1-ay) * *(ptr+1) + (1-ax) *   ay   * *(ptr+(grady2->ncols)) + ax   *   ay   * *(ptr+(grady2->ncols)+1));
-      
-      *grady++ = g1 + g2;
-    }
-  }
+__global__ void _computeGradientSumGPU(
+  float *d_gradx1_data, float *d_grady1_data,  /* device gradient data */
+  float *d_gradx2_data, float *d_grady2_data,
+  int ncols1, int nrows1,  /* dimensions img1 */
+  int ncols2, int nrows2,  /* dimensions img2 */
+  float x1, float y1,      /* center img1 */
+  float x2, float y2,      /* center img2 */
+  int width, int height,   /* window dimension */
+  float *d_gradx_out,      /* device output array */
+  float *d_grady_out)
+{
+
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int total_pixels = width * height;
+  
+  if (idx >= total_pixels) return;
+  
+  /* Convert linear index to i,j offsets */
+  int hw = width / 2;
+  int hh = height / 2;
+  int j = (idx / width) - hh;  
+  int i = (idx % width) - hw; 
+  
+  float px = x1 + i;
+  float py = y1 + j;
+  int xt = (int)px;
+  int yt = (int)py;
+  float ax = px - xt;
+  float ay = py - yt;
+  int offset = yt * ncols1 + xt;
+  float g1 = (1-ax)*(1-ay)*d_gradx1_data[offset] + 
+             ax*(1-ay)*d_gradx1_data[offset+1] +
+             (1-ax)*ay*d_gradx1_data[offset+ncols1] +
+             ax*ay*d_gradx1_data[offset+ncols1+1];
+  
+  px = x2 + i;
+  py = y2 + j;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols2 + xt;
+  float g2 = (1-ax)*(1-ay)*d_gradx2_data[offset] + 
+             ax*(1-ay)*d_gradx2_data[offset+1] +
+             (1-ax)*ay*d_gradx2_data[offset+ncols2] +
+             ax*ay*d_gradx2_data[offset+ncols2+1];
+  
+  d_gradx_out[idx] = g1 + g2;
+  
+  px = x1 + i;
+  py = y1 + j;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols1 + xt;
+  g1 = (1-ax)*(1-ay)*d_grady1_data[offset] + 
+       ax*(1-ay)*d_grady1_data[offset+1] +
+       (1-ax)*ay*d_grady1_data[offset+ncols1] +
+       ax*ay*d_grady1_data[offset+ncols1+1];
+  
+  px = x2 + i;
+  py = y2 + j;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols2 + xt;
+  g2 = (1-ax)*(1-ay)*d_grady2_data[offset] + 
+       ax*(1-ay)*d_grady2_data[offset+1] +
+       (1-ax)*ay*d_grady2_data[offset+ncols2] +
+       ax*ay*d_grady2_data[offset+ncols2+1];
+  
+  d_grady_out[idx] = g1 + g2;
 }
 
 static void _computeGradientSum(
@@ -209,15 +216,57 @@ static void _computeGradientSum(
 
   KLT_BOOL use_gpu = FALSE;  
   
-  if (use_gpu) {
-    _computeGradientSumGPU(gradx1, grady1, gradx2, grady2,
-                           x1, y1, x2, y2, width, height,
-                           gradx, grady);
-  } else {
-    _computeGradientSumCPU(gradx1, grady1, gradx2, grady2,
-                           x1, y1, x2, y2, width, height,
-                           gradx, grady);
+  if (use_gpu) 
+  {
+    float *d_gradx1, *d_grady1, *d_gradx2, *d_grady2;
+    float *d_gradx_out, *d_grady_out;
+    int img1_size = gradx1->ncols * gradx1->nrows * sizeof(float);
+    int img2_size = gradx2->ncols * gradx2->nrows * sizeof(float);
+    int window_size = width * height * sizeof(float);
+    
+    cudaMalloc(&d_gradx1, img1_size);
+    cudaMalloc(&d_grady1, img1_size);
+    cudaMalloc(&d_gradx2, img2_size);
+    cudaMalloc(&d_grady2, img2_size);
+    cudaMalloc(&d_gradx_out, window_size);
+    cudaMalloc(&d_grady_out, window_size);
+    
+    cudaMemcpy(d_gradx1, gradx1->data, img1_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_grady1, grady1->data, img1_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_gradx2, gradx2->data, img2_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_grady2, grady2->data, img2_size, cudaMemcpyHostToDevice);
+    
+    int total_pixels = width * height;
+    int threads_per_block = 256;
+    int num_blocks = (total_pixels + threads_per_block - 1) / threads_per_block;
+    
+    _computeGradientSumGPU<<<num_blocks, threads_per_block>>>(
+      d_gradx1, d_grady1, d_gradx2, d_grady2,
+      gradx1->ncols, gradx1->nrows,
+      gradx2->ncols, gradx2->nrows,
+      x1, y1, x2, y2,
+      width, height,
+      d_gradx_out, d_grady_out
+    );
+    
+    cudaDeviceSynchronize();
+    
+    cudaMemcpy(gradx, d_gradx_out, window_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(grady, d_grady_out, window_size, cudaMemcpyDeviceToHost);
+    
+    cudaFree(d_gradx1);
+    cudaFree(d_grady1);
+    cudaFree(d_gradx2);
+    cudaFree(d_grady2);
+    cudaFree(d_gradx_out);
+    cudaFree(d_grady_out);
+    
+  } 
+  else 
+  {
+    _computeGradientSumCPU(gradx1, grady1, gradx2, grady2, x1, y1, x2, y2, width, height, gradx, grady);
   }
+
 }
 
 /*********************************************************************
@@ -1478,7 +1527,9 @@ void KLTTrackFeatures(
 			}
 
 			/* Record feature */
-			if (val == KLT_OOB) {
+			if (val == KLT_OOB) {This is the bilinear blend of the four neighbors:
+I(x,y)≈(1−ax)(1−ay)  Ixt,yt+ax(1−ay)  Ixt+1,yt+(1−ax)ay  Ixt,yt+1+ax ay  Ixt+1,yt+1.
+
 				featurelist->feature[indx]->x   = -1.0;
 				featurelist->feature[indx]->y   = -1.0;
 				featurelist->feature[indx]->val = KLT_OOB;
