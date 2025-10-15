@@ -65,6 +65,130 @@ static float _interpolate(
  * between the two overlaid images.
  */
 
+ __global__ void _computeIntensityDifferenceGPU(
+    float* img1,   /* images */
+    float* img2,
+    float x1, float y1,     /* center of window in 1st img */
+    float x2, float y2,     /* center of window in 2nd img */
+    int width, int height,  /* size of window */
+    int ncols, int nrows,
+    float* imgdiff)         /* output window */
+{
+    int row = blockDim.y * blockIdx.y + threadIdx.y;
+    int col = blockDim.x * blockIdx.x + threadIdx.x;
+
+    int hw = width / 2;
+    int hh = height / 2;
+
+    if (row < height && col < width) {
+        int index = row * width + col;
+
+        // local coordinates 
+        float dx = -hw + col;
+        float dy = -hh + row;
+
+        //first image //
+        float xf1 = x1 + dx;
+        float yf1 = y1 + dy;
+
+        int xt1 = (int)xf1;
+        int yt1 = (int)yf1;
+        float ax1 = xf1 - xt1;
+        float ay1 = yf1 - yt1;
+
+        if (xt1 < 0) 
+        {
+          xt1 = 0;
+        }
+        if (yt1 < 0) 
+        {
+          yt1 = 0;
+        }
+        if (xt1 >= ncols - 1)
+        {
+          
+         xt1 = ncols - 2;
+        }
+        if (yt1 >= nrows - 1){
+
+         yt1 = nrows - 2;
+        }
+        
+        float* ptr1 = img1 + (ncols * yt1) + xt1;
+
+        float g1 = ((1 - ax1) * (1 - ay1) * ptr1[0] +
+                    ax1 * (1 - ay1) * ptr1[1] +
+                    (1 - ax1) * ay1 * ptr1[ncols] +
+                    ax1 * ay1 * ptr1[ncols + 1]);
+
+        //For second image//
+        float xf2 = x2 + dx;
+        float yf2 = y2 + dy;
+
+        int xt2 = (int)xf2;
+        int yt2 = (int)yf2;
+        float ax2 = xf2 - xt2;
+        float ay2 = yf2 - yt2;
+
+        if (xt2 < 0) xt2 = 0;
+        if (yt2 < 0) yt2 = 0;
+        if (xt2 >= ncols - 1) xt2 = ncols - 2;
+        if (yt2 >= nrows - 1) yt2 = nrows - 2;
+
+        float* ptr2 = img2 + (ncols * yt2) + xt2;
+
+        float g2 = ((1 - ax2) * (1 - ay2) * ptr2[0] +
+                    ax2 * (1 - ay2) * ptr2[1] +
+                    (1 - ax2) * ay2 * ptr2[ncols] +
+                    ax2 * ay2 * ptr2[ncols + 1]);
+
+        imgdiff[index] = g1 - g2;
+    }
+}
+
+static void _computeIntensityDifference(
+  _KLT_FloatImage img1,
+  _KLT_FloatImage img2,
+  float x1, float y1,
+  float x2, float y2,
+  int width, int height,
+  _FloatWindow imgdiff)
+{
+    int ncols = img1->ncols;
+    int nrows = img1->nrows;
+    int size = ncols * nrows * sizeof(float);
+    int windowSize = width * height * sizeof(float);
+
+    float *d_img1, *d_img2, *d_diff;
+
+    cudaMalloc((void**)&d_img1, size);
+    cudaMalloc((void**)&d_img2, size);
+    cudaMalloc((void**)&d_diff, windowSize);
+
+    cudaMemcpy(d_img1, img1->data, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_img2, img2->data, size, cudaMemcpyHostToDevice);
+
+    dim3 blockSize(16, 16);
+    dim3 gridSize((width + 15)/16, (height + 15)/16);
+
+    _computeIntensityDifferenceGPU<<<gridSize, blockSize>>>
+    (
+        d_img1, d_img2,
+        x1, y1, x2, y2,
+        width, height, ncols, nrows,
+        d_diff
+    );
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(imgdiff, d_diff, windowSize, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_img1);
+    cudaFree(d_img2);
+    cudaFree(d_diff);
+}
+
+
+
 static void _computeIntensityDifference(
   _KLT_FloatImage img1,   /* images */
   _KLT_FloatImage img2,
