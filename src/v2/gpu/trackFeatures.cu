@@ -1527,9 +1527,7 @@ void KLTTrackFeatures(
 			}
 
 			/* Record feature */
-			if (val == KLT_OOB) {This is the bilinear blend of the four neighbors:
-I(x,y)≈(1−ax)(1−ay)  Ixt,yt+ax(1−ay)  Ixt+1,yt+(1−ax)ay  Ixt,yt+1+ax ay  Ixt+1,yt+1.
-
+			if (val == KLT_OOB) {
 				featurelist->feature[indx]->x   = -1.0;
 				featurelist->feature[indx]->y   = -1.0;
 				featurelist->feature[indx]->val = KLT_OOB;
