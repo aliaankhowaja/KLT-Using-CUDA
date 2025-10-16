@@ -7,3 +7,13 @@
 example*_gpu
 example*_cpu
 
+/src/v2/*.o
+/src/v2/*.out
+/src/v2/*.txt
+/src/v2/*.a
+/src/v2/*.ppm
+/src/v2/*.ft
+/src/v2/*.fl
+
+/src/v2/example*_gpu
+/src/v2/example*_cpu

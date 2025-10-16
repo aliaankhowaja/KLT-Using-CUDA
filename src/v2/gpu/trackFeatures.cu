@@ -9,6 +9,9 @@
 #include <stdlib.h>		/* malloc() */
 #include <stdio.h>		/* fflush() */
 
+/* CUDA includes */
+#include <cuda.h>
+
 /* Our includes */
 #include "base.h"
 #include "error.h"
@@ -214,12 +217,12 @@ static void _computeIntensityDifference(
 /*********************************************************************
  * _computeGradientSum
  *
- * Given two gradients and the window center in both images,
+ * CPU implementation: Given two gradients and the window center in both images,
  * aligns the gradients wrt the window and computes the sum of the two 
  * overlaid gradients.
  */
 
-static void _computeGradientSum(
+static void _computeGradientSumCPU(
   _KLT_FloatImage gradx1,  /* gradient images */
   _KLT_FloatImage grady1,
   _KLT_FloatImage gradx2,
@@ -227,14 +230,13 @@ static void _computeGradientSum(
   float x1, float y1,      /* center of window in 1st img */
   float x2, float y2,      /* center of window in 2nd img */
   int width, int height,   /* size of window */
-  _FloatWindow gradx,      /* output */
-  _FloatWindow grady)      /*   " */
+  _FloatWindow gradx,      /* output vars*/
+  _FloatWindow grady)      
 {
   int hw = width/2, hh = height/2;
   float g1, g2;
   int i, j;
 
-  /* Compute values */
   for (j = -hh ; j <= hh ; j++)
     for (i = -hw ; i <= hw ; i++)  {
       g1 = _interpolate(x1+i, y1+j, gradx1);
@@ -244,6 +246,159 @@ static void _computeGradientSum(
       g2 = _interpolate(x2+i, y2+j, grady2);
       *grady++ = g1 + g2;
     }
+}
+
+
+
+__global__ void _computeGradientSumGPU(
+  float *d_gradx1_data, float *d_grady1_data,  /* device gradient data */
+  float *d_gradx2_data, float *d_grady2_data,
+  int ncols1, int nrows1,  /* dimensions img1 */
+  int ncols2, int nrows2,  /* dimensions img2 */
+  float x1, float y1,      /* center img1 */
+  float x2, float y2,      /* center img2 */
+  int width, int height,   /* window dimension */
+  float *d_gradx_out,      /* device output array */
+  float *d_grady_out)
+{
+
+  // 2D thread indexing
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  
+  // Bounds check
+  if (i >= width || j >= height) return;
+  
+  /* Convert to window offsets */
+  int hw = width / 2;
+  int hh = height / 2;
+  int i_offset = i - hw;
+  int j_offset = j - hh;
+  
+  // Compute output linear index
+  int idx = j * width + i;
+  
+  float px = x1 + i_offset;
+  float py = y1 + j_offset;
+  int xt = (int)px;
+  int yt = (int)py;
+  float ax = px - xt;
+  float ay = py - yt;
+  int offset = yt * ncols1 + xt;
+  float g1 = (1-ax)*(1-ay)*d_gradx1_data[offset] + 
+             ax*(1-ay)*d_gradx1_data[offset+1] +
+             (1-ax)*ay*d_gradx1_data[offset+ncols1] +
+             ax*ay*d_gradx1_data[offset+ncols1+1];
+  
+  px = x2 + i_offset;
+  py = y2 + j_offset;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols2 + xt;
+  float g2 = (1-ax)*(1-ay)*d_gradx2_data[offset] + 
+             ax*(1-ay)*d_gradx2_data[offset+1] +
+             (1-ax)*ay*d_gradx2_data[offset+ncols2] +
+             ax*ay*d_gradx2_data[offset+ncols2+1];
+  
+  d_gradx_out[idx] = g1 + g2;
+  
+  px = x1 + i_offset;
+  py = y1 + j_offset;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols1 + xt;
+  g1 = (1-ax)*(1-ay)*d_grady1_data[offset] + 
+       ax*(1-ay)*d_grady1_data[offset+1] +
+       (1-ax)*ay*d_grady1_data[offset+ncols1] +
+       ax*ay*d_grady1_data[offset+ncols1+1];
+  
+  px = x2 + i_offset;
+  py = y2 + j_offset;
+  xt = (int)px;
+  yt = (int)py;
+  ax = px - xt;
+  ay = py - yt;
+  offset = yt * ncols2 + xt;
+  g2 = (1-ax)*(1-ay)*d_grady2_data[offset] + 
+       ax*(1-ay)*d_grady2_data[offset+1] +
+       (1-ax)*ay*d_grady2_data[offset+ncols2] +
+       ax*ay*d_grady2_data[offset+ncols2+1];
+  
+  d_grady_out[idx] = g1 + g2;
+}
+
+static void _computeGradientSum(
+  _KLT_FloatImage gradx1,  
+  _KLT_FloatImage grady1,
+  _KLT_FloatImage gradx2,
+  _KLT_FloatImage grady2,
+  float x1, float y1,      
+  float x2, float y2,      
+  int width, int height,   
+  _FloatWindow gradx,      
+  _FloatWindow grady)      
+{
+
+  KLT_BOOL use_gpu = TRUE;  
+  
+  if (use_gpu) 
+  {
+    float *d_gradx1, *d_grady1, *d_gradx2, *d_grady2;
+    float *d_gradx_out, *d_grady_out;
+    int img1_size = gradx1->ncols * gradx1->nrows * sizeof(float);
+    int img2_size = gradx2->ncols * gradx2->nrows * sizeof(float);
+    int window_size = width * height * sizeof(float);
+    
+    cudaMalloc(&d_gradx1, img1_size);
+    cudaMalloc(&d_grady1, img1_size);
+    cudaMalloc(&d_gradx2, img2_size);
+    cudaMalloc(&d_grady2, img2_size);
+    cudaMalloc(&d_gradx_out, window_size);
+    cudaMalloc(&d_grady_out, window_size);
+    
+    cudaMemcpy(d_gradx1, gradx1->data, img1_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_grady1, grady1->data, img1_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_gradx2, gradx2->data, img2_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_grady2, grady2->data, img2_size, cudaMemcpyHostToDevice);
+    
+    // 2D grid configuration
+    dim3 threads_per_block(16, 16);
+    dim3 num_blocks(
+        (width + threads_per_block.x - 1) / threads_per_block.x,
+        (height + threads_per_block.y - 1) / threads_per_block.y
+    );
+    
+    _computeGradientSumGPU<<<num_blocks, threads_per_block>>>(
+      d_gradx1, d_grady1, d_gradx2, d_grady2,
+      gradx1->ncols, gradx1->nrows,
+      gradx2->ncols, gradx2->nrows,
+      x1, y1, x2, y2,
+      width, height,
+      d_gradx_out, d_grady_out
+    );
+    
+    cudaDeviceSynchronize();
+    
+    cudaMemcpy(gradx, d_gradx_out, window_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(grady, d_grady_out, window_size, cudaMemcpyDeviceToHost);
+    
+    cudaFree(d_gradx1);
+    cudaFree(d_grady1);
+    cudaFree(d_gradx2);
+    cudaFree(d_grady2);
+    cudaFree(d_gradx_out);
+    cudaFree(d_grady_out);
+    
+  } 
+  else 
+  {
+    _computeGradientSumCPU(gradx1, grady1, gradx2, grady2, x1, y1, x2, y2, width, height, gradx, grady);
+  }
+
 }
 
 /*********************************************************************
