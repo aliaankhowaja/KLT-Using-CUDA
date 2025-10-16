@@ -7,6 +7,10 @@
 
 #include "klt_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct  {
   int subsampling;
   int nLevels;
@@ -28,5 +32,9 @@ void _KLTComputePyramid(
 
 void _KLTFreePyramid(
   _KLT_Pyramid pyramid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

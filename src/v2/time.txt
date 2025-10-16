@@ -1,0 +1,28 @@
+Timing Examples - Thu Oct 16 01:08:03 PM PKT 2025
+======================================
+
+CPU Versions:
+-------------
+Example 1 (CPU): .053 seconds
+
+Example 2 (CPU): .073 seconds
+
+Example 3 (CPU): .195 seconds
+
+Example 4 (CPU): .002 seconds
+
+Example 5 (CPU): .059 seconds
+
+
+GPU Versions:
+-------------
+Example 1 (GPU): .350 seconds
+
+Example 2 (GPU): .263 seconds
+
+Example 3 (GPU): .323 seconds
+
+Example 4 (GPU): .003 seconds
+
+Example 5 (GPU): .271 seconds
+

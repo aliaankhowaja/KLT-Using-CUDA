@@ -12,6 +12,7 @@
 #include "error.h"
 #include "convolve.h"
 #include "klt_util.h"   /* printing */
+#include <cuda.h>
 
 #define MAX_KERNEL_WIDTH 	71
 
@@ -134,18 +135,94 @@ void _KLTGetKernelWidths(
  * _convolveImageHoriz
  */
 
+__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+  int r = kernelWidth / 2;
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (col < r || col >= ncols-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      for (int i = kernelWidth-1, p = idx - r; i >= 0; i--, p++)
+      {
+        sum += imgin[p] * kernel[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
+}
+
 static void _convolveImageHoriz(
   _KLT_FloatImage imgin,
   ConvolutionKernel kernel,
   _KLT_FloatImage imgout)
 {
+  // float *ptrrow = imgin->data;           /* Points to row's first pixel */
+  // register
+  //  float *ptrout = imgout->data, /* Points to next output pixel */
+    // *ppp;
+  // register
+  //  float sum;
+  // register
+   int radius = kernel.width / 2;
+  // register
+   int ncols = imgin->ncols, nrows = imgin->nrows;
+  // register
+   int i, j, k;
+
+  /* Kernel width must be odd */
+  assert(kernel.width % 2 == 1);
+
+  /* Must read from and write to different images */
+  assert(imgin != imgout);
+
+  /* Output image must be large enough to hold result */
+  assert(imgout->ncols >= imgin->ncols);
+  assert(imgout->nrows >= imgin->nrows);
+
+  float *kernel_d; // kernel
+  float *img_d; // input and output images
+  int inSize = nrows * ncols * sizeof(float);
+  int outSize = imgout->nrows * imgout->ncols * sizeof(float);
+  int kernelSize = kernel.width * sizeof(float);
+  cudaMalloc((void **)&img_d, inSize + outSize);
+  cudaMalloc((void **)&kernel_d, kernelSize);
+  cudaMemcpy(kernel_d, kernel.data, kernelSize, cudaMemcpyHostToDevice);
+  float *imgout_d = img_d + nrows*ncols;
+  cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
+
+  dim3 gridSize((ncols + 7) / 8, (nrows + 7) / 8);
+  dim3 blockSize(8, 8);
+
+  _convolveImageHorizGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
+  cudaDeviceSynchronize();
+
+  cudaMemcpy(imgout->data, imgout_d, outSize, cudaMemcpyDeviceToHost);
+  cudaFree(img_d);
+  cudaFree(kernel_d);
+}
+
+static void _convolveImageHorizCPU(
+  _KLT_FloatImage imgin,
+  ConvolutionKernel kernel,
+  _KLT_FloatImage imgout)
+{
   float *ptrrow = imgin->data;           /* Points to row's first pixel */
-  register float *ptrout = imgout->data, /* Points to next output pixel */
+  // 
+  float *ptrout = imgout->data, /* Points to next output pixel */
     *ppp;
-  register float sum;
-  register int radius = kernel.width / 2;
-  register int ncols = imgin->ncols, nrows = imgin->nrows;
-  register int i, j, k;
+  // 
+  float sum;
+  // 
+  int radius = kernel.width / 2;
+  // 
+  int ncols = imgin->ncols, nrows = imgin->nrows;
+  // 
+  int i, j, k;
 
   /* Kernel width must be odd */
   assert(kernel.width % 2 == 1);
@@ -186,18 +263,92 @@ static void _convolveImageHoriz(
  * _convolveImageVert
  */
 
+__global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+  int r = kernelWidth / 2;
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (row < r || row >= nrows-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      for (int i = kernelWidth-1, p = idx - r*ncols; i >= 0; i--, p+=ncols)
+      {
+        sum += imgin[p] * kernel[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
+}
+
 static void _convolveImageVert(
   _KLT_FloatImage imgin,
   ConvolutionKernel kernel,
   _KLT_FloatImage imgout)
 {
+  // float *ptrcol = imgin->data;            /* Points to row's first pixel */
+  // float *ptrout = imgout->data,  /* Points to next output pixel */
+    // *ppp;
+  // float sum;
+  // 
+  int radius = kernel.width / 2;
+  // 
+  int ncols = imgin->ncols, nrows = imgin->nrows;
+  // 
+  int i, j, k;
+
+  /* Kernel width must be odd */
+  assert(kernel.width % 2 == 1);
+
+  /* Must read from and write to different images */
+  assert(imgin != imgout);
+
+  /* Output image must be large enough to hold result */
+  assert(imgout->ncols >= imgin->ncols);
+  assert(imgout->nrows >= imgin->nrows);
+
+  float *kernel_d; // kernel
+  float *img_d; // input and output images
+  int inSize = nrows * ncols * sizeof(float);
+  int outSize = imgout->nrows * imgout->ncols * sizeof(float);
+  int kernelSize = kernel.width * sizeof(float);
+  cudaMalloc((void **)&img_d, inSize + outSize);
+  cudaMalloc((void **)&kernel_d, kernelSize);
+  cudaMemcpy(kernel_d, kernel.data, kernelSize, cudaMemcpyHostToDevice);
+  float *imgout_d = img_d + nrows*ncols;
+  cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
+
+  dim3 gridSize((ncols + 7) / 8, (nrows + 7) / 8);
+  dim3 blockSize(8, 8);
+
+  _convolveImageVertGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
+  cudaDeviceSynchronize();
+
+  cudaMemcpy(imgout->data, imgout_d, outSize, cudaMemcpyDeviceToHost);
+  cudaFree(img_d);
+  cudaFree(kernel_d);
+}
+
+static void _convolveImageVertCPU(
+  _KLT_FloatImage imgin,
+  ConvolutionKernel kernel,
+  _KLT_FloatImage imgout)
+{
   float *ptrcol = imgin->data;            /* Points to row's first pixel */
-  register float *ptrout = imgout->data,  /* Points to next output pixel */
+  // register
+   float *ptrout = imgout->data,  /* Points to next output pixel */
     *ppp;
-  register float sum;
-  register int radius = kernel.width / 2;
-  register int ncols = imgin->ncols, nrows = imgin->nrows;
-  register int i, j, k;
+  // register
+   float sum;
+  // register
+   int radius = kernel.width / 2;
+  // register
+   int ncols = imgin->ncols, nrows = imgin->nrows;
+  // register
+   int i, j, k;
 
   /* Kernel width must be odd */
   assert(kernel.width % 2 == 1);
