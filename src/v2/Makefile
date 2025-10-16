@@ -10,16 +10,16 @@ CUDA_SM_ARCH = sm_86
 CFLAGS = -pg -I$(CPU_DIR) # Compile with profiling information
 NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -pg -I$(CPU_DIR) -I$(GPU_DIR)
 
-EXAMPLES = example1.c example2.c example3.c example4.c example5.c
+EXAMPLES = example1.cu example2.cu example3.cu example4.cu example5.cu
 
 # C files in cpu directory
-CPU_SOURCES = $(wildcard $(CPU_DIR)/*.c)
-CPU_OBJECTS = $(patsubst $(CPU_DIR)/%.c,%.o,$(CPU_SOURCES))
+CPU_SOURCES = $(wildcard $(CPU_DIR)/*.cu)
+CPU_OBJECTS = $(patsubst $(CPU_DIR)/%.cu,%.o,$(CPU_SOURCES))
 
 # Common files needed for both CPU and GPU builds
-COMMON_FILES_FOR_GPU = error.c pnmio.c pyramid.c selectGoodFeatures.c \
-       storeFeatures.c klt.c klt_util.c writeFeatures.c
-COMMON_OBJECTS_FOR_GPU = $(COMMON_FILES_FOR_GPU:.c=.o)
+COMMON_FILES_FOR_GPU = $(addprefix $(CPU_DIR)/, error.cu pnmio.cu pyramid.cu selectGoodFeatures.cu \
+       storeFeatures.cu klt.cu klt_util.cu writeFeatures.cu)
+COMMON_OBJECTS_FOR_GPU = $(notdir $(COMMON_FILES_FOR_GPU:.cu=.o))
 
 # CUDA files in the gpu directory
 CUDA_SOURCES = $(wildcard $(GPU_DIR)/*.cu)
@@ -31,15 +31,21 @@ LIB = -L/usr/local/lib -L/usr/lib
 
 all: cpu
 
-cpu: libklt_cpu.a $(EXAMPLES:.c=_cpu)
-gpu: libklt_gpu.a $(EXAMPLES:.c=_gpu)
+cpu: clean libklt_cpu.a $(EXAMPLES:.c=_cpu)
+gpu: clean libklt_gpu.a $(EXAMPLES:.cu=_gpu)
 
-# Rule to build .o from .c files in the cpu directory
-%.o: $(CPU_DIR)/%.c
-	$(CC) -c $(CFLAGS) $< -o $@
+
 
 # Rule to build .o from .cu files in the gpu directory
 %.o: $(GPU_DIR)/%.cu
+	$(NVCC) -c $(NVCCFLAGS) $< -o $@
+
+$(COMMON_OBJECTS_FOR_GPU): %.o: $(CPU_DIR)/%.cu
+	$(NVCC) -c $(NVCCFLAGS) $< -o $@
+
+
+# Rule to build .o from .c files in the cpu directory
+%.o: $(CPU_DIR)/%.cu
 	$(NVCC) -c $(NVCCFLAGS) $< -o $@
 
 libklt_cpu.a: $(CPU_OBJECTS)
@@ -51,10 +57,10 @@ libklt_gpu.a: $(COMMON_OBJECTS_FOR_GPU) $(CUDA_OBJECTS)
 	rm -f libklt_gpu.a
 	ar ruv libklt_gpu.a $^
 
-example%_cpu: example%.c libklt_cpu.a
+example%_cpu: example%.cu libklt_cpu.a
 	$(CC) -O3 $(CFLAGS) -o $@ $< -L. -lklt_cpu $(LIB) -lm
 
-example%_gpu: example%.c libklt_gpu.a
+example%_gpu: example%.cu libklt_gpu.a
 	$(NVCC) -O3 $(NVCCFLAGS) -o $@ $< -L. -lklt_gpu $(LIB) -lm
 
 depend:
