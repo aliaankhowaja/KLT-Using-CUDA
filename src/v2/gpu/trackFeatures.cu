@@ -10,7 +10,7 @@
 #include <stdio.h>		/* fflush() */
 
 /* CUDA includes */
-#include <cuda_runtime.h>
+#include <cuda.h>
 
 /* Our includes */
 #include "base.h"
@@ -138,19 +138,24 @@ __global__ void _computeGradientSumGPU(
   float *d_grady_out)
 {
 
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int total_pixels = width * height;
+  // 2D thread indexing
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   
-  if (idx >= total_pixels) return;
+  // Bounds check
+  if (i >= width || j >= height) return;
   
-  /* Convert linear index to i,j offsets */
+  /* Convert to window offsets */
   int hw = width / 2;
   int hh = height / 2;
-  int j = (idx / width) - hh;  
-  int i = (idx % width) - hw; 
+  int i_offset = i - hw;
+  int j_offset = j - hh;
   
-  float px = x1 + i;
-  float py = y1 + j;
+  // Compute output linear index
+  int idx = j * width + i;
+  
+  float px = x1 + i_offset;
+  float py = y1 + j_offset;
   int xt = (int)px;
   int yt = (int)py;
   float ax = px - xt;
@@ -161,8 +166,8 @@ __global__ void _computeGradientSumGPU(
              (1-ax)*ay*d_gradx1_data[offset+ncols1] +
              ax*ay*d_gradx1_data[offset+ncols1+1];
   
-  px = x2 + i;
-  py = y2 + j;
+  px = x2 + i_offset;
+  py = y2 + j_offset;
   xt = (int)px;
   yt = (int)py;
   ax = px - xt;
@@ -175,8 +180,8 @@ __global__ void _computeGradientSumGPU(
   
   d_gradx_out[idx] = g1 + g2;
   
-  px = x1 + i;
-  py = y1 + j;
+  px = x1 + i_offset;
+  py = y1 + j_offset;
   xt = (int)px;
   yt = (int)py;
   ax = px - xt;
@@ -187,8 +192,8 @@ __global__ void _computeGradientSumGPU(
        (1-ax)*ay*d_grady1_data[offset+ncols1] +
        ax*ay*d_grady1_data[offset+ncols1+1];
   
-  px = x2 + i;
-  py = y2 + j;
+  px = x2 + i_offset;
+  py = y2 + j_offset;
   xt = (int)px;
   yt = (int)py;
   ax = px - xt;
@@ -214,7 +219,7 @@ static void _computeGradientSum(
   _FloatWindow grady)      
 {
 
-  KLT_BOOL use_gpu = FALSE;  
+  KLT_BOOL use_gpu = TRUE;  
   
   if (use_gpu) 
   {
@@ -236,9 +241,12 @@ static void _computeGradientSum(
     cudaMemcpy(d_gradx2, gradx2->data, img2_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_grady2, grady2->data, img2_size, cudaMemcpyHostToDevice);
     
-    int total_pixels = width * height;
-    int threads_per_block = 256;
-    int num_blocks = (total_pixels + threads_per_block - 1) / threads_per_block;
+    // 2D grid configuration
+    dim3 threads_per_block(16, 16);
+    dim3 num_blocks(
+        (width + threads_per_block.x - 1) / threads_per_block.x,
+        (height + threads_per_block.y - 1) / threads_per_block.y
+    );
     
     _computeGradientSumGPU<<<num_blocks, threads_per_block>>>(
       d_gradx1, d_grady1, d_gradx2, d_grady2,
