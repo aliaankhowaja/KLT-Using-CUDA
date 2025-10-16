@@ -4,5 +4,6 @@
 *.a
 *.ft
 *.fl
+*.out
 example*_gpu
 example*_cpu

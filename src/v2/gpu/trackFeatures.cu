@@ -192,7 +192,7 @@ static void _computeIntensityDifference(
 
 
 
-static void _computeIntensityDifference(
+static void _computeIntensityDifferenceCPU(
   _KLT_FloatImage img1,   /* images */
   _KLT_FloatImage img2,
   float x1, float y1,     /* center of window in 1st img */
