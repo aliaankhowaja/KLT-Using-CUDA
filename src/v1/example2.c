@@ -23,8 +23,8 @@ int main()
   tc = KLTCreateTrackingContext();
   fl = KLTCreateFeatureList(nFeatures);
 
-  img1 = pgmReadFile("../../data/img0.pgm", NULL, &ncols, &nrows);
-  img2 = pgmReadFile("../../data/img1.pgm", NULL, &ncols, &nrows);
+  img1 = pgmReadFile("../../data/d2/img0.pgm", NULL, &ncols, &nrows);
+  img2 = pgmReadFile("../../data/d2/img1.pgm", NULL, &ncols, &nrows);
 
   KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
 
@@ -39,4 +39,3 @@ int main()
 
   return 0;
 }
-

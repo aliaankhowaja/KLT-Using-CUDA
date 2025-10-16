@@ -149,7 +149,7 @@ static float _interpolate(
     }
 }
 
-static void _computeIntensityDifference(
+static void _computeIntensityDifferenceGPUWrapper(
   _KLT_FloatImage img1,
   _KLT_FloatImage img2,
   float x1, float y1,
@@ -192,7 +192,7 @@ static void _computeIntensityDifference(
 
 
 
-static void _computeIntensityDifferenceCPU(
+static void _computeIntensityDifference(
   _KLT_FloatImage img1,   /* images */
   _KLT_FloatImage img2,
   float x1, float y1,     /* center of window in 1st img */
@@ -343,7 +343,7 @@ static void _computeGradientSum(
   _FloatWindow grady)      
 {
 
-  KLT_BOOL use_gpu = TRUE;  
+  KLT_BOOL use_gpu = FALSE;  
   
   if (use_gpu) 
   {

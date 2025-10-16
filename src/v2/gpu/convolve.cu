@@ -195,8 +195,8 @@ static void _convolveImageHoriz(
   float *imgout_d = img_d + nrows*ncols;
   cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
 
-  dim3 gridSize((ncols + 7) / 8, (nrows + 7) / 8);
-  dim3 blockSize(8, 8);
+  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
+  dim3 blockSize(16, 16);
 
   _convolveImageHorizGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
   cudaDeviceSynchronize();
@@ -321,8 +321,8 @@ static void _convolveImageVert(
   float *imgout_d = img_d + nrows*ncols;
   cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
 
-  dim3 gridSize((ncols + 7) / 8, (nrows + 7) / 8);
-  dim3 blockSize(8, 8);
+  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
+  dim3 blockSize(16, 16);
 
   _convolveImageVertGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
   cudaDeviceSynchronize();

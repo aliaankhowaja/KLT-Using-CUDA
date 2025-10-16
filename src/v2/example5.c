@@ -19,14 +19,14 @@ int main()
 
   tc = KLTCreateTrackingContext();
   tc->mindist = 20;
-  tc->window_width  = 9;
+  tc->window_width = 9;
   tc->window_height = 9;
   KLTChangeTCPyramid(tc, 15);
   KLTUpdateTCBorder(tc);
   fl = KLTCreateFeatureList(nFeatures);
 
-  img1 = pgmReadFile("../../data/img0.pgm", NULL, &ncols, &nrows);
-  img2 = pgmReadFile("../../data/img2.pgm", NULL, &ncols, &nrows);
+  img1 = pgmReadFile("../../data/d2/img0.pgm", NULL, &ncols, &nrows);
+  img2 = pgmReadFile("../../data/d2/img2.pgm", NULL, &ncols, &nrows);
 
   KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
 
@@ -38,4 +38,3 @@ int main()
 
   return 0;
 }
-

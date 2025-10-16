@@ -36,29 +36,40 @@ time_example() {
     # Calculate elapsed time in seconds (with millisecond precision)
     elapsed=$(echo "scale=3; ($end - $start) / 1000000000" | bc)
     
-    echo "$example_name: $elapsed seconds" >> "$OUTPUT_FILE"
-    echo "" >> "$OUTPUT_FILE"
+    echo -n "$elapsed, " >> "$OUTPUT_FILE"
+    # echo "$example_name: $elapsed seconds" >> "$OUTPUT_FILE"
+
+    # echo "" >> "$OUTPUT_FILE"
 }
 
 # Time CPU versions
 make cpu
 echo "CPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
-time_example "Example 1 (CPU)" "example1_cpu"
-time_example "Example 2 (CPU)" "example2_cpu"
-time_example "Example 3 (CPU)" "example3_cpu"
-time_example "Example 4 (CPU)" "example4_cpu"
-time_example "Example 5 (CPU)" "example5_cpu"
+
+
+for (( i=0; i<5; i++ )); do
+    time_example "Example 1 (CPU)" "example1_cpu"
+    time_example "Example 2 (CPU)" "example2_cpu"
+    time_example "Example 3 (CPU)" "example3_cpu"
+    time_example "Example 4 (CPU)" "example4_cpu"
+    time_example "Example 5 (CPU)" "example5_cpu"
+    echo "" >> "$OUTPUT_FILE"
+done
 
 make gpu
 echo "" >> "$OUTPUT_FILE"
 echo "GPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
-time_example "Example 1 (GPU)" "example1_gpu"
-time_example "Example 2 (GPU)" "example2_gpu"
-time_example "Example 3 (GPU)" "example3_gpu"
-time_example "Example 4 (GPU)" "example4_gpu"
-time_example "Example 5 (GPU)" "example5_gpu"
+
+for (( i=0; i<5; i++ )); do
+    time_example "Example 1 (GPU)" "example1_gpu"
+    time_example "Example 2 (GPU)" "example2_gpu"
+    time_example "Example 3 (GPU)" "example3_gpu"
+    time_example "Example 4 (GPU)" "example4_gpu"
+    time_example "Example 5 (GPU)" "example5_gpu"
+    echo "" >> "$OUTPUT_FILE"
+done
 
 echo "Timing complete! Results saved to $OUTPUT_FILE"
 cat "$OUTPUT_FILE"

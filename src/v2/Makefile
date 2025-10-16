@@ -7,8 +7,8 @@ NVCC = nvcc # NVIDIA CUDA compiler
 CUDA_COMPUTE_CAPABILITY = compute_86 # Specify the compute capability of your GPU
 CUDA_SM_ARCH = sm_86
 
-CFLAGS = -pg -I$(CPU_DIR) # Compile with profiling information
-NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -pg -I$(CPU_DIR) -I$(GPU_DIR)
+CFLAGS = -I$(CPU_DIR)
+NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -I$(CPU_DIR) -I$(GPU_DIR)
 
 EXAMPLES = example1.c example2.c example3.c example4.c example5.c
 
@@ -18,7 +18,7 @@ CPU_OBJECTS = $(patsubst $(CPU_DIR)/%.c,$(CPU_DIR)/%.o,$(CPU_SOURCES))
 
 # Common files needed for both CPU and GPU builds
 COMMON_FILES_FOR_GPU = $(addprefix $(CPU_DIR)/, error.c pnmio.c pyramid.c selectGoodFeatures.c \
-       storeFeatures.c klt.c klt_util.c writeFeatures.c)
+       storeFeatures.c klt.c klt_util.c writeFeatures.c trackFeatures.c)
 COMMON_OBJECTS_FOR_GPU = $(patsubst $(CPU_DIR)/%.c,$(CPU_DIR)/%.o,$(COMMON_FILES_FOR_GPU))
 
 # CUDA files in the gpu directory
@@ -63,7 +63,7 @@ example%_gpu: example%.c libklt_gpu.a
 
 clean:
 	rm -f $(CPU_DIR)/*.o $(GPU_DIR)/*.o *.a *_cpu *_gpu *.tar *.tar.gz \
-	feat*.ppm features.ft features.txt
+	feat*.ppm features.ft features.txt feat1.txt feat2.txt feat2.fl ft2.txt ft3.txt
 
 
 

@@ -1,7 +1,7 @@
 /**********************************************************************
 Finds the 100 best features in an image, and tracks these
 features to the next image.  Saves the feature
-locations (before and after tracking) to text files and to PPM files, 
+locations (before and after tracking) to text files and to PPM files,
 and prints the features to the screen.
 **********************************************************************/
 
@@ -25,13 +25,14 @@ int main()
   KLTPrintTrackingContext(tc);
   fl = KLTCreateFeatureList(nFeatures);
 
-  img1 = pgmReadFile("../../data/img0.pgm", NULL, &ncols, &nrows);
-  img2 = pgmReadFile("../../data/img1.pgm", NULL, &ncols, &nrows);
+  img1 = pgmReadFile("../../data/d2/img0.pgm", NULL, &ncols, &nrows);
+  img2 = pgmReadFile("../../data/d2/img1.pgm", NULL, &ncols, &nrows);
 
   KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
 
   printf("\nIn first image:\n");
-  for (i = 0 ; i < fl->nFeatures ; i++)  {
+  for (i = 0; i < fl->nFeatures; i++)
+  {
     printf("Feature #%d:  (%f,%f) with value of %d\n",
            i, fl->feature[i]->x, fl->feature[i]->y,
            fl->feature[i]->val);
@@ -43,16 +44,16 @@ int main()
   KLTTrackFeatures(tc, img1, img2, ncols, nrows, fl);
 
   printf("\nIn second image:\n");
-  for (i = 0 ; i < fl->nFeatures ; i++)  {
+  for (i = 0; i < fl->nFeatures; i++)
+  {
     printf("Feature #%d:  (%f,%f) with value of %d\n",
            i, fl->feature[i]->x, fl->feature[i]->y,
            fl->feature[i]->val);
   }
 
   KLTWriteFeatureListToPPM(fl, img2, ncols, nrows, "feat2.ppm");
-  KLTWriteFeatureList(fl, "feat2.fl", NULL);      /* binary file */
-  KLTWriteFeatureList(fl, "feat2.txt", "%5.1f");  /* text file   */
+  KLTWriteFeatureList(fl, "feat2.fl", NULL);     /* binary file */
+  KLTWriteFeatureList(fl, "feat2.txt", "%5.1f"); /* text file   */
 
   return 0;
 }
-
