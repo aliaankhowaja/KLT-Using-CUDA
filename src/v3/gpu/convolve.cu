@@ -404,16 +404,47 @@ static void _convolveSeparate(
   _KLT_FloatImage imgout)
 {
   /* Create temporary image */
-  _KLT_FloatImage tmpimg;
-  tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
-  
-  /* Do convolution */
-  _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
+  // _KLT_FloatImage tmpimg;
+  // tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
 
-  _convolveImageVert(tmpimg, vert_kernel, imgout);
+  int nrows = imgin->nrows;
+  int ncols = imgin->ncols;
+
+  float* imgin_d, * tmpimg_d, * imgout_d, float* imgData;
+  int imgSize = nrows * ncols * sizeof(float);
+  cudaMalloc((void**)&imgin_d, imgSize * 2);
+  tmpimg_d = imgin_d + nrows * ncols;
+  imgout_d = imgin_d; // reuse input memory for output
+
+  cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
+  
+  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
+  dim3 blockSize(16, 16);
+
+  int horizKernelWidth = horiz_kernel.width;
+  int vertKernelWidth = vert_kernel.width;
+  __constant__ float horizKernelData[horizKernelWidth];
+  __constant__ float vertKernelData[vertKernelWidth];
+  cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
+  cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
+
+  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, horizKernelData, nrows, ncols, horizKernelWidth);
+  cudaDeviceSynchronize();
+  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, vertKernelData, nrows, ncols, vertKernelWidth);
+  cudaDeviceSynchronize();
+
+  cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
+
+  cudaFree(imgin_d);
+  
+
+  // /* Do convolution */
+  // _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
+
+  // _convolveImageVert(tmpimg, vert_kernel, imgout);
 
   /* Free memory */
-  _KLTFreeFloatImage(tmpimg);
+  // _KLTFreeFloatImage(tmpimg);
 }
 
 	
