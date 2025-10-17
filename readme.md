@@ -1,6 +1,6 @@
 # KLT (Kanade-Lucas-Tomasi) Feature Tracker with CUDA
 
-This repository contains an implementation of the KLT feature tracker with both CPU and GPU (CUDA) versions, along with profiling capabilities.
+This repository contains an implementation of the KLT feature tracker with both CPU and GPU (CUDA) versions.
 
 ## Building the Code
 
@@ -58,36 +58,6 @@ cd src/v2
 ./example1_gpu
 ./example2_gpu
 # ... and so on for other examples
-```
-
-## Profiling
-
-TODO: Update for GPU
-
-To run all examples with profiling and generate performance reports:
-
-```bash
-cd src/v1
-./profile_all.sh
-```
-
-This script will:
-
-1. Compile all examples with profiling enabled
-2. Run each example to collect performance data
-3. Generate gprof reports
-4. Create PDF visualizations of the profiling results
-
-### Manual Profiling
-
-To profile a single example manually:
-
-```bash
-cd src/v1
-make all
-./example1  # This generates gmon.out
-gprof ./example1 gmon.out > example1.gprof
-./gprof2pdf.sh example1.gprof  # Generates PDF report
 ```
 
 ## Cleaning Up
