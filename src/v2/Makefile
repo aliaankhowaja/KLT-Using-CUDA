@@ -4,8 +4,8 @@ GPU_DIR = ./gpu
 CC = gcc # C compiler
 NVCC = nvcc # NVIDIA CUDA compiler
 
-CUDA_COMPUTE_CAPABILITY = compute_86 # Specify the compute capability of your GPU
-CUDA_SM_ARCH = sm_86
+CUDA_COMPUTE_CAPABILITY = compute_86 # compute capability
+CUDA_SM_ARCH = sm_86 # specific architecture
 
 CFLAGS = -I$(CPU_DIR)
 NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -I$(CPU_DIR) -I$(GPU_DIR)
