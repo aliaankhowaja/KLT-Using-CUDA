@@ -27,6 +27,8 @@ static ConvolutionKernel gauss_kernel;
 static ConvolutionKernel gaussderiv_kernel;
 static float sigma_last = -10.0;
 
+__constant__ float horizKernelData[MAX_KERNEL_WIDTH];
+__constant__ float vertKernelData[MAX_KERNEL_WIDTH];
 
 /*********************************************************************
  * _KLTToFloatImage
@@ -156,109 +158,6 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kerne
   }
 }
 
-static void _convolveImageHoriz(
-  _KLT_FloatImage imgin,
-  ConvolutionKernel kernel,
-  _KLT_FloatImage imgout)
-{
-  // float *ptrrow = imgin->data;           /* Points to row's first pixel */
-  // register
-  //  float *ptrout = imgout->data, /* Points to next output pixel */
-    // *ppp;
-  // register
-  //  float sum;
-  // register
-   int radius = kernel.width / 2;
-  // register
-   int ncols = imgin->ncols, nrows = imgin->nrows;
-  // register
-   int i, j, k;
-
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
-
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  float *kernel_d; // kernel
-  float *img_d; // input and output images
-  int inSize = nrows * ncols * sizeof(float);
-  int outSize = imgout->nrows * imgout->ncols * sizeof(float);
-  int kernelSize = kernel.width * sizeof(float);
-  cudaMalloc((void **)&img_d, inSize + outSize);
-  cudaMalloc((void **)&kernel_d, kernelSize);
-  cudaMemcpy(kernel_d, kernel.data, kernelSize, cudaMemcpyHostToDevice);
-  float *imgout_d = img_d + nrows*ncols;
-  cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
-
-  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
-  dim3 blockSize(16, 16);
-
-  _convolveImageHorizGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
-  cudaDeviceSynchronize();
-
-  cudaMemcpy(imgout->data, imgout_d, outSize, cudaMemcpyDeviceToHost);
-  cudaFree(img_d);
-  cudaFree(kernel_d);
-}
-
-static void _convolveImageHorizCPU(
-  _KLT_FloatImage imgin,
-  ConvolutionKernel kernel,
-  _KLT_FloatImage imgout)
-{
-  float *ptrrow = imgin->data;           /* Points to row's first pixel */
-  // 
-  float *ptrout = imgout->data, /* Points to next output pixel */
-    *ppp;
-  // 
-  float sum;
-  // 
-  int radius = kernel.width / 2;
-  // 
-  int ncols = imgin->ncols, nrows = imgin->nrows;
-  // 
-  int i, j, k;
-
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
-
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  /* For each row, do ... */
-  for (j = 0 ; j < nrows ; j++)  {
-
-    /* Zero leftmost columns */
-    for (i = 0 ; i < radius ; i++)
-      *ptrout++ = 0.0;
-
-    /* Convolve middle columns with kernel */
-    for ( ; i < ncols - radius ; i++)  {
-      ppp = ptrrow + i - radius;
-      sum = 0.0;
-      for (k = kernel.width-1 ; k >= 0 ; k--)
-        sum += *ppp++ * kernel.data[k];
-      *ptrout++ = sum;
-    }
-
-    /* Zero rightmost columns */
-    for ( ; i < ncols ; i++)
-      *ptrout++ = 0.0;
-
-    ptrrow += ncols;
-  }
-}
-
-
 /*********************************************************************
  * _convolveImageVert
  */
@@ -284,114 +183,6 @@ __global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel
   }
 }
 
-static void _convolveImageVert(
-  _KLT_FloatImage imgin,
-  ConvolutionKernel kernel,
-  _KLT_FloatImage imgout)
-{
-  // float *ptrcol = imgin->data;            /* Points to row's first pixel */
-  // float *ptrout = imgout->data,  /* Points to next output pixel */
-    // *ppp;
-  // float sum;
-  // 
-  int radius = kernel.width / 2;
-  // 
-  int ncols = imgin->ncols, nrows = imgin->nrows;
-  // 
-  int i, j, k;
-
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
-
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  float *kernel_d; // kernel
-  float *img_d; // input and output images
-  int inSize = nrows * ncols * sizeof(float);
-  int outSize = imgout->nrows * imgout->ncols * sizeof(float);
-  int kernelSize = kernel.width * sizeof(float);
-  cudaMalloc((void **)&img_d, inSize + outSize);
-  cudaMalloc((void **)&kernel_d, kernelSize);
-  cudaMemcpy(kernel_d, kernel.data, kernelSize, cudaMemcpyHostToDevice);
-  float *imgout_d = img_d + nrows*ncols;
-  cudaMemcpy(img_d, imgin->data, inSize, cudaMemcpyHostToDevice);
-
-  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
-  dim3 blockSize(16, 16);
-
-  _convolveImageVertGPU<<<gridSize, blockSize>>>(img_d, imgout_d, kernel_d, nrows, ncols, kernel.width);
-  cudaDeviceSynchronize();
-
-  cudaMemcpy(imgout->data, imgout_d, outSize, cudaMemcpyDeviceToHost);
-  cudaFree(img_d);
-  cudaFree(kernel_d);
-}
-
-static void _convolveImageVertCPU(
-  _KLT_FloatImage imgin,
-  ConvolutionKernel kernel,
-  _KLT_FloatImage imgout)
-{
-  float *ptrcol = imgin->data;            /* Points to row's first pixel */
-  // register
-   float *ptrout = imgout->data,  /* Points to next output pixel */
-    *ppp;
-  // register
-   float sum;
-  // register
-   int radius = kernel.width / 2;
-  // register
-   int ncols = imgin->ncols, nrows = imgin->nrows;
-  // register
-   int i, j, k;
-
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
-
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  /* For each column, do ... */
-  for (i = 0 ; i < ncols ; i++)  {
-
-    /* Zero topmost rows */
-    for (j = 0 ; j < radius ; j++)  {
-      *ptrout = 0.0;
-      ptrout += ncols;
-    }
-
-    /* Convolve middle rows with kernel */
-    for ( ; j < nrows - radius ; j++)  {
-      ppp = ptrcol + ncols * (j - radius);
-      sum = 0.0;
-      for (k = kernel.width-1 ; k >= 0 ; k--)  {
-        sum += *ppp * kernel.data[k];
-        ppp += ncols;
-      }
-      *ptrout = sum;
-      ptrout += ncols;
-    }
-
-    /* Zero bottommost rows */
-    for ( ; j < nrows ; j++)  {
-      *ptrout = 0.0;
-      ptrout += ncols;
-    }
-
-    ptrcol++;
-    ptrout -= nrows * ncols - 1;
-  }
-}
-
 
 /*********************************************************************
  * _convolveSeparate
@@ -404,16 +195,45 @@ static void _convolveSeparate(
   _KLT_FloatImage imgout)
 {
   /* Create temporary image */
-  _KLT_FloatImage tmpimg;
-  tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
-  
-  /* Do convolution */
-  _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
+  // _KLT_FloatImage tmpimg;
+  // tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
 
-  _convolveImageVert(tmpimg, vert_kernel, imgout);
+  int nrows = imgin->nrows;
+  int ncols = imgin->ncols;
+
+  float* imgin_d, * tmpimg_d, * imgout_d;
+  int imgSize = nrows * ncols * sizeof(float);
+  cudaMalloc((void**)&imgin_d, imgSize * 2);
+  tmpimg_d = imgin_d + nrows * ncols;
+  imgout_d = imgin_d; // reuse input memory for output
+
+  cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
+  
+  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
+  dim3 blockSize(16, 16);
+
+  int horizKernelWidth = horiz_kernel.width;
+  int vertKernelWidth = vert_kernel.width;
+  cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
+  cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
+
+  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, horizKernelData, nrows, ncols, horizKernelWidth);
+  cudaDeviceSynchronize();
+  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, vertKernelData, nrows, ncols, vertKernelWidth);
+  cudaDeviceSynchronize();
+
+  cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
+
+  cudaFree(imgin_d);
+  
+
+  // /* Do convolution */
+  // _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
+
+  // _convolveImageVert(tmpimg, vert_kernel, imgout);
 
   /* Free memory */
-  _KLTFreeFloatImage(tmpimg);
+  // _KLTFreeFloatImage(tmpimg);
 }
 
 	
