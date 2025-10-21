@@ -42,20 +42,6 @@ time_example() {
     # echo "" >> "$OUTPUT_FILE"
 }
 
-# Time CPU versions
-make cpu
-echo "CPU Versions:" >> "$OUTPUT_FILE"
-echo "-------------" >> "$OUTPUT_FILE"
-
-
-for (( i=0; i<2; i++ )); do
-    time_example "Example 1 (CPU)" "example1_cpu"
-    time_example "Example 2 (CPU)" "example2_cpu"
-    time_example "Example 3 (CPU)" "example3_cpu"
-    time_example "Example 4 (CPU)" "example4_cpu"
-    time_example "Example 5 (CPU)" "example5_cpu"
-    echo "" >> "$OUTPUT_FILE"
-done
 
 make gpu
 echo "" >> "$OUTPUT_FILE"
