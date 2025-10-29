@@ -166,27 +166,41 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, int nrows, i
  * _convolveImageVert
  */
 
-__global__ void _convolveImageVertGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageVertGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+  int r = kernelWidth / 2;
+  __shared__ float tile[BLOCKDIM_HALO][BLOCKDIM]; // shared memory tile 
+  
+  // global indices for convolution operation at each pixel
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
-  int r = kernelWidth / 2;
+
+  // local indices block indices for shared membory
+  int lrow = threadIdx.y;
+  int lcol = threadIdx.x;
+  
+  // copy the data into shared memory
   if (row < nrows && col < ncols)
   {
-    int idx = row * ncols + col;
-    if (row < r || row >= nrows-r){
-      imgout[idx] = 0;
-    }
-    else {
-      float sum = 0;
-      for (int i = kernelWidth-1, p = idx - r*ncols; i >= 0; i--, p+=ncols)
+    tile[lrow+r][lcol] = imgin[row * ncols + col]; // copy pixel data
+    if (lrow == 0 && row >= r) // first thread loads top halos
+    {
+      for (int i = r; i > 0; i--) 
       {
-        sum += imgin[p] * vertKernelData[i];
+        tile[r - i][lcol] = imgin[(row - i) * ncols + col];
       }
-      imgout[idx] = sum;
+    }
+    if (lrow == blockDim.y - 1 && row < nrows - r) // last thread loads bottom halos
+    {
+      for (int i = 1; i <= r; i ++){
+        tile[lrow + r + i][lcol] = imgin[(row + i) * ncols + col];
+      }
     }
   }
-}
 
+  __syncthreads();
+
+ 
+}
 
 /*********************************************************************
  * _convolveSeparate
