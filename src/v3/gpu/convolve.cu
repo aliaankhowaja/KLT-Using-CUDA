@@ -15,6 +15,10 @@
 #include <cuda.h>
 
 #define MAX_KERNEL_WIDTH 	71
+#define BLOCKDIM 16
+#define BLOCKDIM_HALO 86
+#define DIMX blockDim.x
+#define DIMY blockDim.y
 
 
 typedef struct  {
@@ -126,18 +130,18 @@ void _KLTGetKernelWidths(
   float sigma,
   int *gauss_width,
   int *gaussderiv_width)
-{
-  _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
-  *gauss_width = gauss_kernel.width;
-  *gaussderiv_width = gaussderiv_kernel.width;
-}
-
-
+  {
+    _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
+    *gauss_width = gauss_kernel.width;
+    *gaussderiv_width = gaussderiv_kernel.width;
+  }
+  
+  
 /*********************************************************************
  * _convolveImageHoriz
  */
 
-__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
   int r = kernelWidth / 2;
@@ -151,7 +155,7 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kerne
       float sum = 0;
       for (int i = kernelWidth-1, p = idx - r; i >= 0; i--, p++)
       {
-        sum += imgin[p] * kernel[i];
+        sum += imgin[p] * horizKernelData[i];
       }
       imgout[idx] = sum;
     }
@@ -162,7 +166,7 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kerne
  * _convolveImageVert
  */
 
-__global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageVertGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
   int r = kernelWidth / 2;
@@ -176,7 +180,7 @@ __global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel
       float sum = 0;
       for (int i = kernelWidth-1, p = idx - r*ncols; i >= 0; i--, p+=ncols)
       {
-        sum += imgin[p] * kernel[i];
+        sum += imgin[p] * vertKernelData[i];
       }
       imgout[idx] = sum;
     }
@@ -208,24 +212,23 @@ static void _convolveSeparate(
   imgout_d = imgin_d; // reuse input memory for output
 
   cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
-  
-  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
-  dim3 blockSize(16, 16);
+
+  dim3 gridSize((ncols + BLOCKDIM - 1) / BLOCKDIM, (nrows + BLOCKDIM - 1) / BLOCKDIM);
+  dim3 blockSize(BLOCKDIM, BLOCKDIM);
 
   int horizKernelWidth = horiz_kernel.width;
   int vertKernelWidth = vert_kernel.width;
   cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
   cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
 
-  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, horizKernelData, nrows, ncols, horizKernelWidth);
+  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, nrows, ncols, horizKernelWidth);
   cudaDeviceSynchronize();
-  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, vertKernelData, nrows, ncols, vertKernelWidth);
+  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, nrows, ncols, vertKernelWidth);
   cudaDeviceSynchronize();
 
   cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
 
   cudaFree(imgin_d);
-  
 
   // /* Do convolution */
   // _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
