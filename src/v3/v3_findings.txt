@@ -1,0 +1,42 @@
+Timing Examples - Wed Oct 29 03:37:00 PM PKT 2025
+======================================
+
+
+the default kernel 16x16
+GPU Versions:
+-------------
+6.923, 
+
+
+
+
+Timing Examples - Wed Oct 29 03:39:44 PM PKT 2025
+======================================
+
+32x32 kernel
+
+GPU Versions:
+-------------
+7.118, 
+
+Timing Examples - Wed Oct 29 03:41:54 PM PKT 2025
+======================================
+
+32x8 kernel:
+
+GPU Versions:
+-------------
+6.955, 
+
+32x16 kernel:
+
+GPU Versions:
+-------------
+6.937, 
+
+16x32 kernel:
+
+GPU Versions:
+-------------
+6.957, 
+
