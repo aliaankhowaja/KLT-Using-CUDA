@@ -141,22 +141,56 @@ void _KLTGetKernelWidths(
  * _convolveImageHoriz
  */
 
-__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageHorizGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth)
+{
+  int r = kernelWidth / 2;
+  __shared__ float tile[BLOCKDIM][BLOCKDIM_HALO]; // shared memory tile 
+
+  // global indices for convolution operation at each pixel
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
-  int r = kernelWidth / 2;
+
+  // local indices block indices for shared membory
+  int lrow = threadIdx.y;
+  int lcol = threadIdx.x;
+
+  // copy the data into shared memory
+  if (row < nrows && col < ncols)
+  {
+    tile[lrow][lcol + r] = imgin[row * ncols + col]; // copy pixel data
+    if (lcol == 0 && col >= r) // first thread loads left halos
+    {
+      for (int i = r; i > 0; i--) 
+      {
+        tile[lrow][r - i] = imgin[row * ncols + col - i];
+      }
+    }
+    if (lcol == blockDim.x - 1 && col < ncols - r) // last thread loads right halos
+    {
+      for (int i = 1; i <= r; i ++){
+        tile[lrow][lcol + r + i] = imgin[row * ncols + col + i];
+      }
+    }
+  }
+
+  __syncthreads();
+
   if (row < nrows && col < ncols)
   {
     int idx = row * ncols + col;
-    if (col < r || col >= ncols-r){
+    if (col < r || col >= ncols - r)
+    {
       imgout[idx] = 0;
     }
-    else {
+    else
+    {
       float sum = 0;
-      for (int i = kernelWidth-1, p = idx - r; i >= 0; i--, p++)
+      // Convolve using shared memory
+      for (int i = kernelWidth - 1, p = lcol; i >= 0; i--, p++)
       {
-        sum += imgin[p] * horizKernelData[i];
+        sum += tile[lrow][p] * horizKernelData[i];
       }
+
       imgout[idx] = sum;
     }
   }
