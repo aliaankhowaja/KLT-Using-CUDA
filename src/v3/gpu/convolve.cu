@@ -136,6 +136,58 @@ void _KLTGetKernelWidths(
     *gaussderiv_width = gaussderiv_kernel.width;
   }
   
+
+  /*********************************************************************
+ * _convolveImageHoriz
+ */
+
+__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+  int r = kernelWidth / 2;
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (col < r || col >= ncols-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      for (int i = kernelWidth-1, p = idx - r; i >= 0; i--, p++)
+      {
+        sum += imgin[p] * horizKernelData[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
+}
+
+/*********************************************************************
+ * _convolveImageVert
+ */
+
+__global__ void _convolveImageVertGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+  int r = kernelWidth / 2;
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (row < r || row >= nrows-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      for (int i = kernelWidth-1, p = idx - r*ncols; i >= 0; i--, p+=ncols)
+      {
+        sum += imgin[p] * vertKernelData[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
+}
+
+
   
 /*********************************************************************
  * _convolveImageHoriz
