@@ -199,7 +199,22 @@ __global__ void _convolveImageVertGPU_shared_mem1(float *imgin, float *imgout, i
 
   __syncthreads();
 
- 
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (row < r || row >= nrows-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      // Convolve using shared memory
+      for (int i = kernelWidth-1, p = lrow; i >= 0; i--, p++)
+      {
+        sum += tile[p][lcol] * vertKernelData[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
 }
 
 /*********************************************************************
