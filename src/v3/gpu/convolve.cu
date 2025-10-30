@@ -15,7 +15,9 @@
 #include <cuda.h>
 
 #define MAX_KERNEL_WIDTH 	71
-#define BLOCKDIM 16
+#define BLOCKDIM 32
+#define BLOCKDIM_X 16
+#define BLOCKDIM_Y 32
 #define BLOCKDIM_HALO 86
 #define DIMX blockDim.x
 #define DIMY blockDim.y
@@ -328,8 +330,8 @@ static void _convolveSeparate(
 
   cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
 
-  dim3 gridSize((ncols + BLOCKDIM - 1) / BLOCKDIM, (nrows + BLOCKDIM - 1) / BLOCKDIM);
-  dim3 blockSize(BLOCKDIM, BLOCKDIM);
+  dim3 gridSize((ncols + BLOCKDIM_X - 1) / BLOCKDIM_X, (nrows + BLOCKDIM_Y - 1) / BLOCKDIM_Y);
+  dim3 blockSize(BLOCKDIM_X, BLOCKDIM_Y);
 
   int horizKernelWidth = horiz_kernel.width;
   int vertKernelWidth = vert_kernel.width;
