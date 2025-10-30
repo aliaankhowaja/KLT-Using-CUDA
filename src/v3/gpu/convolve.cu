@@ -15,9 +15,9 @@
 #include <cuda.h>
 
 #define MAX_KERNEL_WIDTH 	71
-#define BLOCKDIM 32
+#define BLOCKDIM 16
 #define BLOCKDIM_X 16
-#define BLOCKDIM_Y 32
+#define BLOCKDIM_Y 16
 #define BLOCKDIM_HALO 86
 #define DIMX blockDim.x
 #define DIMY blockDim.y

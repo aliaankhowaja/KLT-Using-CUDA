@@ -37,6 +37,7 @@ int main()
   img1 = pgmReadFile("../../data/d3/img0.pgm", NULL, &ncols, &nrows);
   img2 = (unsigned char *)malloc(ncols * nrows * sizeof(unsigned char));
 
+
   KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
   KLTStoreFeatureList(fl, ft, 0);
   KLTWriteFeatureListToPPM(fl, img1, ncols, nrows, "feat0.ppm");
@@ -50,9 +51,11 @@ int main()
     KLTReplaceLostFeatures(tc, img2, ncols, nrows, fl);
 #endif
     KLTStoreFeatureList(fl, ft, i);
-    sprintf(fnameout, "feat%d.ppm", i);
-    KLTWriteFeatureListToPPM(fl, img2, ncols, nrows, fnameout);
+    // sprintf(fnameout, "feat%d.ppm", i);
+    // KLTWriteFeatureListToPPM(fl, img2, ncols, nrows, fnameout);
   }
+
+  
   KLTWriteFeatureTable(ft, "features.txt", "%5.1f");
   KLTWriteFeatureTable(ft, "features.ft", NULL);
 
