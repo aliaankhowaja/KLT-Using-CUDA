@@ -5,6 +5,8 @@
 # Renames files from imgN.pgm to img(N-1).pgm.
 # =================================================================
 
+ffmpeg -i img.mp4 -vframes 260 img%d.pgm
+
 for old_name in $(ls -v img*.pgm 2>/dev/null); do
     if [[ "$old_name" =~ img([0-9]+)\.pgm ]]; then
         current_num="${BASH_REMATCH[1]}"

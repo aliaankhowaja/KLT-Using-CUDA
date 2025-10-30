@@ -198,7 +198,7 @@ __global__ void _convolveImageVertGPU(float *imgin, float *imgout, int nrows, in
 __global__ void _convolveImageHorizGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth)
 {
   int r = kernelWidth / 2;
-  __shared__ float tile[BLOCKDIM][BLOCKDIM_HALO]; // shared memory tile 
+  __shared__ float tile[BLOCKDIM][BLOCKDIM_HALO+1]; // shared memory tile 
 
   // global indices for convolution operation at each pixel
   int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -256,7 +256,7 @@ __global__ void _convolveImageHorizGPU_shared_mem1(float *imgin, float *imgout, 
 
 __global__ void _convolveImageVertGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
   int r = kernelWidth / 2;
-  __shared__ float tile[BLOCKDIM_HALO][BLOCKDIM]; // shared memory tile 
+  __shared__ float tile[BLOCKDIM_HALO][BLOCKDIM+1]; // shared memory tile 
   
   // global indices for convolution operation at each pixel
   int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -325,6 +325,7 @@ static void _convolveSeparate(
   float* imgin_d, * tmpimg_d, * imgout_d;
   int imgSize = nrows * ncols * sizeof(float);
   cudaMalloc((void**)&imgin_d, imgSize * 2);
+  // cudaMalloc((void**)&tmpimg_d, imgSize);
   tmpimg_d = imgin_d + nrows * ncols;
   imgout_d = imgin_d; // reuse input memory for output
 
@@ -338,22 +339,14 @@ static void _convolveSeparate(
   cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
   cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
 
-  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, nrows, ncols, horizKernelWidth);
-  cudaDeviceSynchronize();
-  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, nrows, ncols, vertKernelWidth);
+  _convolveImageHorizGPU_shared_mem1<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, nrows, ncols, horizKernelWidth);
+  _convolveImageVertGPU_shared_mem1<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, nrows, ncols, vertKernelWidth);
   cudaDeviceSynchronize();
 
   cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
 
   cudaFree(imgin_d);
-
-  // /* Do convolution */
-  // _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
-
-  // _convolveImageVert(tmpimg, vert_kernel, imgout);
-
-  /* Free memory */
-  // _KLTFreeFloatImage(tmpimg);
+  // cudaFree(tmpimg_d);
 }
 
 	

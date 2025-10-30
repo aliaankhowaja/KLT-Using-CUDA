@@ -1,7 +1,8 @@
-Timing Examples - Thu Oct 30 12:43:07 PM PKT 2025
+Timing Examples - Thu Oct 30 05:47:53 PM PKT 2025
 ======================================
 
 
 GPU Versions:
 -------------
-17.463, 
+16.783, 
+16.711, 

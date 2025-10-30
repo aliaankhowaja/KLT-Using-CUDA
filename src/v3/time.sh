@@ -49,11 +49,7 @@ echo "GPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
 
 for (( i=0; i<2; i++ )); do
-    time_example "Example 1 (GPU)" "example1_gpu"
-    time_example "Example 2 (GPU)" "example2_gpu"
     time_example "Example 3 (GPU)" "example3_gpu"
-    time_example "Example 4 (GPU)" "example4_gpu"
-    time_example "Example 5 (GPU)" "example5_gpu"
     echo "" >> "$OUTPUT_FILE"
 done
 
