@@ -7,7 +7,7 @@ OUTPUT_FILE="time.txt"
 # Clear the output file
 > "$OUTPUT_FILE"
 
-echo "Timing Examples - $(date)" >> "$OUTPUT_FILE"
+echo "Timing Examples" >> "$OUTPUT_FILE"
 echo "======================================" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 

@@ -4,14 +4,14 @@ This repository contains an implementation of the KLT feature tracker with both 
 
 ## Building the Code
 
-Navigate to the `src/v2` directory to build the code.
+Navigate to the `src/v3` directory to build the code.
 
 ### CPU Version
 
 To compile the CPU version:
 
 ```bash
-cd src/v2
+cd src/v3
 make cpu
 ```
 
@@ -25,7 +25,7 @@ This will:
 To compile the GPU version (requires CUDA toolkit):
 
 ```bash
-cd src/v2
+cd src/v3
 make gpu
 ```
 
@@ -36,12 +36,12 @@ This will:
 
 ## Running Examples
 
-You can run each example individually from the `src/v2` directory.
+You can run each example individually from the `src/v3` directory.
 
 ### CPU Examples
 
 ```bash
-cd src/v2
+cd src/v3
 
 # Run CPU examples
 ./example1_cpu
@@ -52,7 +52,7 @@ cd src/v2
 ### GPU Examples
 
 ```bash
-cd src/v2
+cd src/v3
 
 # Run GPU examples
 ./example1_gpu
@@ -65,6 +65,6 @@ cd src/v2
 To clean compiled files:
 
 ```bash
-cd src/v2
+cd src/v3
 make clean
 ```
