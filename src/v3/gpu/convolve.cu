@@ -15,6 +15,12 @@
 #include <cuda.h>
 
 #define MAX_KERNEL_WIDTH 	71
+#define BLOCKDIM 16
+#define BLOCKDIM_X 16
+#define BLOCKDIM_Y 16
+#define BLOCKDIM_HALO 86
+#define DIMX blockDim.x
+#define DIMY blockDim.y
 
 
 typedef struct  {
@@ -126,18 +132,18 @@ void _KLTGetKernelWidths(
   float sigma,
   int *gauss_width,
   int *gaussderiv_width)
-{
-  _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
-  *gauss_width = gauss_kernel.width;
-  *gaussderiv_width = gaussderiv_kernel.width;
-}
+  {
+    _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
+    *gauss_width = gauss_kernel.width;
+    *gaussderiv_width = gaussderiv_kernel.width;
+  }
+  
 
-
-/*********************************************************************
+  /*********************************************************************
  * _convolveImageHoriz
  */
 
-__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageHorizGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
   int r = kernelWidth / 2;
@@ -151,7 +157,7 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kerne
       float sum = 0;
       for (int i = kernelWidth-1, p = idx - r; i >= 0; i--, p++)
       {
-        sum += imgin[p] * kernel[i];
+        sum += imgin[p] * horizKernelData[i];
       }
       imgout[idx] = sum;
     }
@@ -162,7 +168,7 @@ __global__ void _convolveImageHorizGPU(float *imgin, float *imgout, float* kerne
  * _convolveImageVert
  */
 
-__global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel, int nrows, int ncols, int kernelWidth){
+__global__ void _convolveImageVertGPU(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
   int row = blockDim.y * blockIdx.y + threadIdx.y;
   int col = blockDim.x * blockIdx.x + threadIdx.x;
   int r = kernelWidth / 2;
@@ -176,13 +182,128 @@ __global__ void _convolveImageVertGPU(float *imgin, float *imgout, float* kernel
       float sum = 0;
       for (int i = kernelWidth-1, p = idx - r*ncols; i >= 0; i--, p+=ncols)
       {
-        sum += imgin[p] * kernel[i];
+        sum += imgin[p] * vertKernelData[i];
       }
       imgout[idx] = sum;
     }
   }
 }
 
+
+  
+/*********************************************************************
+ * _convolveImageHoriz
+ */
+
+__global__ void _convolveImageHorizGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth)
+{
+  int r = kernelWidth / 2;
+  __shared__ float tile[BLOCKDIM][BLOCKDIM_HALO+1]; // shared memory tile 
+
+  // global indices for convolution operation at each pixel
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+
+  // local indices block indices for shared membory
+  int lrow = threadIdx.y;
+  int lcol = threadIdx.x;
+
+  // copy the data into shared memory
+  if (row < nrows && col < ncols)
+  {
+    tile[lrow][lcol + r] = imgin[row * ncols + col]; // copy pixel data
+    if (lcol == 0 && col >= r) // first thread loads left halos
+    {
+      for (int i = r; i > 0; i--) 
+      {
+        tile[lrow][r - i] = imgin[row * ncols + col - i];
+      }
+    }
+    if (lcol == blockDim.x - 1 && col < ncols - r) // last thread loads right halos
+    {
+      for (int i = 1; i <= r; i ++){
+        tile[lrow][lcol + r + i] = imgin[row * ncols + col + i];
+      }
+    }
+  }
+
+  __syncthreads();
+
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (col < r || col >= ncols - r)
+    {
+      imgout[idx] = 0;
+    }
+    else
+    {
+      float sum = 0;
+      // Convolve using shared memory
+      for (int i = kernelWidth - 1, p = lcol; i >= 0; i--, p++)
+      {
+        sum += tile[lrow][p] * horizKernelData[i];
+      }
+
+      imgout[idx] = sum;
+    }
+  }
+}
+
+/*********************************************************************
+ * _convolveImageVert
+ */
+
+__global__ void _convolveImageVertGPU_shared_mem1(float *imgin, float *imgout, int nrows, int ncols, int kernelWidth){
+  int r = kernelWidth / 2;
+  __shared__ float tile[BLOCKDIM_HALO][BLOCKDIM+1]; // shared memory tile 
+  
+  // global indices for convolution operation at each pixel
+  int row = blockDim.y * blockIdx.y + threadIdx.y;
+  int col = blockDim.x * blockIdx.x + threadIdx.x;
+
+  // local indices block indices for shared membory
+  int lrow = threadIdx.y;
+  int lcol = threadIdx.x;
+  
+  // copy the data into shared memory
+  if (row < nrows && col < ncols)
+  {
+    tile[lrow+r][lcol] = imgin[row * ncols + col]; // copy pixel data
+    if (lrow == 0 && row >= r) // first thread loads top halos
+    {
+      for (int i = r; i > 0; i--) 
+      {
+        tile[r - i][lcol] = imgin[(row - i) * ncols + col];
+      }
+    }
+    if (lrow == blockDim.y - 1 && row < nrows - r) // last thread loads bottom halos
+    {
+      for (int i = 1; i <= r; i ++){
+        tile[lrow + r + i][lcol] = imgin[(row + i) * ncols + col];
+      }
+    }
+  }
+
+  __syncthreads();
+
+  if (row < nrows && col < ncols)
+  {
+    int idx = row * ncols + col;
+    if (row < r || row >= nrows-r){
+      imgout[idx] = 0;
+    }
+    else {
+      float sum = 0;
+      // Convolve using shared memory
+      for (int i = kernelWidth-1, p = lrow; i >= 0; i--, p++)
+      {
+        sum += tile[p][lcol] * vertKernelData[i];
+      }
+      imgout[idx] = sum;
+    }
+  }
+}
 
 /*********************************************************************
  * _convolveSeparate
@@ -204,36 +325,28 @@ static void _convolveSeparate(
   float* imgin_d, * tmpimg_d, * imgout_d;
   int imgSize = nrows * ncols * sizeof(float);
   cudaMalloc((void**)&imgin_d, imgSize * 2);
+  // cudaMalloc((void**)&tmpimg_d, imgSize);
   tmpimg_d = imgin_d + nrows * ncols;
   imgout_d = imgin_d; // reuse input memory for output
 
   cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
-  
-  dim3 gridSize((ncols + 15) / 16, (nrows + 15) / 16);
-  dim3 blockSize(16, 16);
+
+  dim3 gridSize((ncols + BLOCKDIM_X - 1) / BLOCKDIM_X, (nrows + BLOCKDIM_Y - 1) / BLOCKDIM_Y);
+  dim3 blockSize(BLOCKDIM_X, BLOCKDIM_Y);
 
   int horizKernelWidth = horiz_kernel.width;
   int vertKernelWidth = vert_kernel.width;
   cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
   cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
 
-  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, horizKernelData, nrows, ncols, horizKernelWidth);
-  cudaDeviceSynchronize();
-  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, vertKernelData, nrows, ncols, vertKernelWidth);
+  _convolveImageHorizGPU_shared_mem1<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, nrows, ncols, horizKernelWidth);
+  _convolveImageVertGPU_shared_mem1<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, nrows, ncols, vertKernelWidth);
   cudaDeviceSynchronize();
 
   cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
 
   cudaFree(imgin_d);
-  
-
-  // /* Do convolution */
-  // _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
-
-  // _convolveImageVert(tmpimg, vert_kernel, imgout);
-
-  /* Free memory */
-  // _KLTFreeFloatImage(tmpimg);
+  // cudaFree(tmpimg_d);
 }
 
 	

@@ -42,14 +42,23 @@ time_example() {
     # echo "" >> "$OUTPUT_FILE"
 }
 
-
 make gpu
 echo "" >> "$OUTPUT_FILE"
 echo "GPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
 
-for (( i=0; i<2; i++ )); do
+for (( i=0; i<1; i++ )); do
     time_example "Example 3 (GPU)" "example3_gpu"
+    echo "" >> "$OUTPUT_FILE"
+done
+
+make cpu
+echo "" >> "$OUTPUT_FILE"
+echo "cPU Versions:" >> "$OUTPUT_FILE"
+echo "-------------" >> "$OUTPUT_FILE"
+
+for (( i=0; i<1; i++ )); do
+    time_example "Example 3 (cPU)" "example3_cpu"
     echo "" >> "$OUTPUT_FILE"
 done
 
