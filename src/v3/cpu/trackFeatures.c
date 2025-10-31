@@ -9,9 +9,6 @@
 #include <stdlib.h>		/* malloc() */
 #include <stdio.h>		/* fflush() */
 
-/* CUDA includes */
-#include <cuda.h>
-
 /* Our includes */
 #include "base.h"
 #include "error.h"
@@ -68,130 +65,6 @@ static float _interpolate(
  * between the two overlaid images.
  */
 
- __global__ void _computeIntensityDifferenceGPU(
-    float* img1,   /* images */
-    float* img2,
-    float x1, float y1,     /* center of window in 1st img */
-    float x2, float y2,     /* center of window in 2nd img */
-    int width, int height,  /* size of window */
-    int ncols, int nrows,
-    float* imgdiff)         /* output window */
-{
-    int row = blockDim.y * blockIdx.y + threadIdx.y;
-    int col = blockDim.x * blockIdx.x + threadIdx.x;
-
-    int hw = width / 2;
-    int hh = height / 2;
-
-    if (row < height && col < width) {
-        int index = row * width + col;
-
-        // local coordinates 
-        float dx = -hw + col;
-        float dy = -hh + row;
-
-        //first image //
-        float xf1 = x1 + dx;
-        float yf1 = y1 + dy;
-
-        int xt1 = (int)xf1;
-        int yt1 = (int)yf1;
-        float ax1 = xf1 - xt1;
-        float ay1 = yf1 - yt1;
-
-        if (xt1 < 0) 
-        {
-          xt1 = 0;
-        }
-        if (yt1 < 0) 
-        {
-          yt1 = 0;
-        }
-        if (xt1 >= ncols - 1)
-        {
-          
-         xt1 = ncols - 2;
-        }
-        if (yt1 >= nrows - 1){
-
-         yt1 = nrows - 2;
-        }
-        
-        float* ptr1 = img1 + (ncols * yt1) + xt1;
-
-        float g1 = ((1 - ax1) * (1 - ay1) * ptr1[0] +
-                    ax1 * (1 - ay1) * ptr1[1] +
-                    (1 - ax1) * ay1 * ptr1[ncols] +
-                    ax1 * ay1 * ptr1[ncols + 1]);
-
-        //For second image//
-        float xf2 = x2 + dx;
-        float yf2 = y2 + dy;
-
-        int xt2 = (int)xf2;
-        int yt2 = (int)yf2;
-        float ax2 = xf2 - xt2;
-        float ay2 = yf2 - yt2;
-
-        if (xt2 < 0) xt2 = 0;
-        if (yt2 < 0) yt2 = 0;
-        if (xt2 >= ncols - 1) xt2 = ncols - 2;
-        if (yt2 >= nrows - 1) yt2 = nrows - 2;
-
-        float* ptr2 = img2 + (ncols * yt2) + xt2;
-
-        float g2 = ((1 - ax2) * (1 - ay2) * ptr2[0] +
-                    ax2 * (1 - ay2) * ptr2[1] +
-                    (1 - ax2) * ay2 * ptr2[ncols] +
-                    ax2 * ay2 * ptr2[ncols + 1]);
-
-        imgdiff[index] = g1 - g2;
-    }
-}
-
-static void _computeIntensityDifferenceGPUWrapper(
-  _KLT_FloatImage img1,
-  _KLT_FloatImage img2,
-  float x1, float y1,
-  float x2, float y2,
-  int width, int height,
-  _FloatWindow imgdiff)
-{
-    int ncols = img1->ncols;
-    int nrows = img1->nrows;
-    int size = ncols * nrows * sizeof(float);
-    int windowSize = width * height * sizeof(float);
-
-    float *d_img1, *d_img2, *d_diff;
-
-    cudaMalloc((void**)&d_img1, size);
-    cudaMalloc((void**)&d_img2, size);
-    cudaMalloc((void**)&d_diff, windowSize);
-
-    cudaMemcpy(d_img1, img1->data, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_img2, img2->data, size, cudaMemcpyHostToDevice);
-
-    dim3 blockSize(16, 16);
-    dim3 gridSize((width + 15)/16, (height + 15)/16);
-
-    _computeIntensityDifferenceGPU<<<gridSize, blockSize>>>
-    (
-        d_img1, d_img2,
-        x1, y1, x2, y2,
-        width, height, ncols, nrows,
-        d_diff
-    );
-    cudaDeviceSynchronize();
-
-    cudaMemcpy(imgdiff, d_diff, windowSize, cudaMemcpyDeviceToHost);
-
-    cudaFree(d_img1);
-    cudaFree(d_img2);
-    cudaFree(d_diff);
-}
-
-
-
 static void _computeIntensityDifference(
   _KLT_FloatImage img1,   /* images */
   _KLT_FloatImage img2,
@@ -217,7 +90,7 @@ static void _computeIntensityDifference(
 /*********************************************************************
  * _computeGradientSum
  *
- * CPU implementation: Given two gradients and the window center in both images,
+ * Given two gradients and the window center in both images,
  * aligns the gradients wrt the window and computes the sum of the two 
  * overlaid gradients.
  */
@@ -230,13 +103,14 @@ static void _computeGradientSum(
   float x1, float y1,      /* center of window in 1st img */
   float x2, float y2,      /* center of window in 2nd img */
   int width, int height,   /* size of window */
-  _FloatWindow gradx,      /* output vars*/
-  _FloatWindow grady)      
+  _FloatWindow gradx,      /* output */
+  _FloatWindow grady)      /*   " */
 {
   int hw = width/2, hh = height/2;
   float g1, g2;
   int i, j;
 
+  /* Compute values */
   for (j = -hh ; j <= hh ; j++)
     for (i = -hw ; i <= hw ; i++)  {
       g1 = _interpolate(x1+i, y1+j, gradx1);
@@ -246,159 +120,6 @@ static void _computeGradientSum(
       g2 = _interpolate(x2+i, y2+j, grady2);
       *grady++ = g1 + g2;
     }
-}
-
-
-
-__global__ void _computeGradientSumGPU(
-  float *d_gradx1_data, float *d_grady1_data,  /* device gradient data */
-  float *d_gradx2_data, float *d_grady2_data,
-  int ncols1, int nrows1,  /* dimensions img1 */
-  int ncols2, int nrows2,  /* dimensions img2 */
-  float x1, float y1,      /* center img1 */
-  float x2, float y2,      /* center img2 */
-  int width, int height,   /* window dimension */
-  float *d_gradx_out,      /* device output array */
-  float *d_grady_out)
-{
-
-  // 2D thread indexing
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  
-  // Bounds check
-  if (i >= width || j >= height) return;
-  
-  /* Convert to window offsets */
-  int hw = width / 2;
-  int hh = height / 2;
-  int i_offset = i - hw;
-  int j_offset = j - hh;
-  
-  // Compute output linear index
-  int idx = j * width + i;
-  
-  float px = x1 + i_offset;
-  float py = y1 + j_offset;
-  int xt = (int)px;
-  int yt = (int)py;
-  float ax = px - xt;
-  float ay = py - yt;
-  int offset = yt * ncols1 + xt;
-  float g1 = (1-ax)*(1-ay)*d_gradx1_data[offset] + 
-             ax*(1-ay)*d_gradx1_data[offset+1] +
-             (1-ax)*ay*d_gradx1_data[offset+ncols1] +
-             ax*ay*d_gradx1_data[offset+ncols1+1];
-  
-  px = x2 + i_offset;
-  py = y2 + j_offset;
-  xt = (int)px;
-  yt = (int)py;
-  ax = px - xt;
-  ay = py - yt;
-  offset = yt * ncols2 + xt;
-  float g2 = (1-ax)*(1-ay)*d_gradx2_data[offset] + 
-             ax*(1-ay)*d_gradx2_data[offset+1] +
-             (1-ax)*ay*d_gradx2_data[offset+ncols2] +
-             ax*ay*d_gradx2_data[offset+ncols2+1];
-  
-  d_gradx_out[idx] = g1 + g2;
-  
-  px = x1 + i_offset;
-  py = y1 + j_offset;
-  xt = (int)px;
-  yt = (int)py;
-  ax = px - xt;
-  ay = py - yt;
-  offset = yt * ncols1 + xt;
-  g1 = (1-ax)*(1-ay)*d_grady1_data[offset] + 
-       ax*(1-ay)*d_grady1_data[offset+1] +
-       (1-ax)*ay*d_grady1_data[offset+ncols1] +
-       ax*ay*d_grady1_data[offset+ncols1+1];
-  
-  px = x2 + i_offset;
-  py = y2 + j_offset;
-  xt = (int)px;
-  yt = (int)py;
-  ax = px - xt;
-  ay = py - yt;
-  offset = yt * ncols2 + xt;
-  g2 = (1-ax)*(1-ay)*d_grady2_data[offset] + 
-       ax*(1-ay)*d_grady2_data[offset+1] +
-       (1-ax)*ay*d_grady2_data[offset+ncols2] +
-       ax*ay*d_grady2_data[offset+ncols2+1];
-  
-  d_grady_out[idx] = g1 + g2;
-}
-
-static void _computeGradientSumGPUWrapper(
-  _KLT_FloatImage gradx1,  
-  _KLT_FloatImage grady1,
-  _KLT_FloatImage gradx2,
-  _KLT_FloatImage grady2,
-  float x1, float y1,      
-  float x2, float y2,      
-  int width, int height,   
-  _FloatWindow gradx,      
-  _FloatWindow grady)      
-{
-
-  KLT_BOOL use_gpu = FALSE;  
-  
-  if (use_gpu) 
-  {
-    float *d_gradx1, *d_grady1, *d_gradx2, *d_grady2;
-    float *d_gradx_out, *d_grady_out;
-    int img1_size = gradx1->ncols * gradx1->nrows * sizeof(float);
-    int img2_size = gradx2->ncols * gradx2->nrows * sizeof(float);
-    int window_size = width * height * sizeof(float);
-    
-    cudaMalloc(&d_gradx1, img1_size);
-    cudaMalloc(&d_grady1, img1_size);
-    cudaMalloc(&d_gradx2, img2_size);
-    cudaMalloc(&d_grady2, img2_size);
-    cudaMalloc(&d_gradx_out, window_size);
-    cudaMalloc(&d_grady_out, window_size);
-    
-    cudaMemcpy(d_gradx1, gradx1->data, img1_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_grady1, grady1->data, img1_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_gradx2, gradx2->data, img2_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_grady2, grady2->data, img2_size, cudaMemcpyHostToDevice);
-    
-    // 2D grid configuration
-    dim3 threads_per_block(16, 16);
-    dim3 num_blocks(
-        (width + threads_per_block.x - 1) / threads_per_block.x,
-        (height + threads_per_block.y - 1) / threads_per_block.y
-    );
-    
-    _computeGradientSumGPU<<<num_blocks, threads_per_block>>>(
-      d_gradx1, d_grady1, d_gradx2, d_grady2,
-      gradx1->ncols, gradx1->nrows,
-      gradx2->ncols, gradx2->nrows,
-      x1, y1, x2, y2,
-      width, height,
-      d_gradx_out, d_grady_out
-    );
-    
-    cudaDeviceSynchronize();
-    
-    cudaMemcpy(gradx, d_gradx_out, window_size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(grady, d_grady_out, window_size, cudaMemcpyDeviceToHost);
-    
-    cudaFree(d_gradx1);
-    cudaFree(d_grady1);
-    cudaFree(d_gradx2);
-    cudaFree(d_grady2);
-    cudaFree(d_gradx_out);
-    cudaFree(d_grady_out);
-    
-  } 
-  else 
-  {
-    _computeGradientSumCPU(gradx1, grady1, gradx2, grady2, x1, y1, x2, y2, width, height, gradx, grady);
-  }
-
 }
 
 /*********************************************************************
