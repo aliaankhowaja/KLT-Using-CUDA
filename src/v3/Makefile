@@ -17,8 +17,8 @@ CPU_SOURCES = $(wildcard $(CPU_DIR)/*.c)
 CPU_OBJECTS = $(patsubst $(CPU_DIR)/%.c,$(CPU_DIR)/%.o,$(CPU_SOURCES))
 
 # Common files needed for both CPU and GPU builds
-COMMON_FILES_FOR_GPU = $(addprefix $(CPU_DIR)/, error.c pnmio.c pyramid.c selectGoodFeatures.c \
-       storeFeatures.c klt.c klt_util.c writeFeatures.c trackFeatures.c)
+COMMON_FILES_FOR_GPU = $(addprefix $(CPU_DIR)/, error.c pnmio.c \
+       storeFeatures.c klt_util.c writeFeatures.c)
 COMMON_OBJECTS_FOR_GPU = $(patsubst $(CPU_DIR)/%.c,$(CPU_DIR)/%.o,$(COMMON_FILES_FOR_GPU))
 
 # CUDA files in the gpu directory

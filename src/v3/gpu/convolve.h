@@ -21,6 +21,12 @@ void _KLTComputeGradients(
   _KLT_FloatImage img,
   float sigma,
   _KLT_FloatImage gradx,
+  _KLT_FloatImage grady, float* imgin_d);
+
+void _KLTComputeGradientsWithMalloc(
+  _KLT_FloatImage img,
+  float sigma,
+  _KLT_FloatImage gradx,
   _KLT_FloatImage grady);
 
 void _KLTGetKernelWidths(
@@ -29,6 +35,11 @@ void _KLTGetKernelWidths(
   int *gaussderiv_width);
 
 void _KLTComputeSmoothedImage(
+  _KLT_FloatImage img,
+  float sigma,
+  _KLT_FloatImage smooth, float* imgin_d);
+
+void _KLTComputeSmoothedImageWithMalloc(
   _KLT_FloatImage img,
   float sigma,
   _KLT_FloatImage smooth);

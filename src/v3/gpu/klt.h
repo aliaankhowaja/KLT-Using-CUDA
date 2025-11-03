@@ -87,6 +87,7 @@ typedef struct  {
   void *pyramid_last_gradx;
   void* pyramid_last_grady;
   float* gpuImg;
+  KLT_BOOL imgInit; // is memory allocated for gpu image.
 }  KLT_TrackingContextRec, * KLT_TrackingContext;
 
 

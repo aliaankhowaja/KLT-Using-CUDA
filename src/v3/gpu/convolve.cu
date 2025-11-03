@@ -313,6 +313,42 @@ static void _convolveSeparate(
   _KLT_FloatImage imgin,
   ConvolutionKernel horiz_kernel,
   ConvolutionKernel vert_kernel,
+  _KLT_FloatImage imgout, int nrows, int ncols, float* imgin_d)
+{
+  /* Create temporary image */
+  // _KLT_FloatImage tmpimg;
+  // tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
+
+  // int nrows = imgin->nrows;
+  // int ncols = imgin->ncols;
+
+  float* tmpimg_d, * imgout_d;
+  int imgSize = nrows * ncols * sizeof(float);
+  tmpimg_d = imgin_d + nrows * ncols;
+  imgout_d = imgin_d; // reuse input memory for output
+
+  cudaMemcpy(imgin_d, imgin->data, imgSize, cudaMemcpyHostToDevice);
+
+  dim3 gridSize((ncols + BLOCKDIM_X - 1) / BLOCKDIM_X, (nrows + BLOCKDIM_Y - 1) / BLOCKDIM_Y);
+  dim3 blockSize(BLOCKDIM_X, BLOCKDIM_Y);
+
+  int horizKernelWidth = horiz_kernel.width;
+  int vertKernelWidth = vert_kernel.width;
+  cudaMemcpyToSymbol(horizKernelData, horiz_kernel.data, horizKernelWidth * sizeof(float));
+  cudaMemcpyToSymbol(vertKernelData, vert_kernel.data, vertKernelWidth * sizeof(float));
+
+  _convolveImageHorizGPU<<<gridSize, blockSize>>>(imgin_d, tmpimg_d, nrows, ncols, horizKernelWidth);
+  _convolveImageVertGPU<<<gridSize, blockSize>>>(tmpimg_d, imgout_d, nrows, ncols, vertKernelWidth);
+  cudaDeviceSynchronize();
+
+  cudaMemcpy(imgout->data, imgout_d, imgSize, cudaMemcpyDeviceToHost);
+  // cudaFree(tmpimg_d);
+}
+
+static void _convolveSeparateWithMalloc(
+  _KLT_FloatImage imgin,
+  ConvolutionKernel horiz_kernel,
+  ConvolutionKernel vert_kernel,
   _KLT_FloatImage imgout)
 {
   /* Create temporary image */
@@ -325,7 +361,6 @@ static void _convolveSeparate(
   float* imgin_d, * tmpimg_d, * imgout_d;
   int imgSize = nrows * ncols * sizeof(float);
   cudaMalloc((void**)&imgin_d, imgSize * 2);
-  // cudaMalloc((void**)&tmpimg_d, imgSize);
   tmpimg_d = imgin_d + nrows * ncols;
   imgout_d = imgin_d; // reuse input memory for output
 
@@ -358,6 +393,28 @@ void _KLTComputeGradients(
   _KLT_FloatImage img,
   float sigma,
   _KLT_FloatImage gradx,
+  _KLT_FloatImage grady, float* imgin_d)
+{
+				
+  /* Output images must be large enough to hold result */
+  assert(gradx->ncols >= img->ncols);
+  assert(gradx->nrows >= img->nrows);
+  assert(grady->ncols >= img->ncols);
+  assert(grady->nrows >= img->nrows);
+
+  /* Compute kernels, if necessary */
+  if (fabs(sigma - sigma_last) > 0.05)
+    _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
+	
+  _convolveSeparate(img, gaussderiv_kernel, gauss_kernel, gradx, img->nrows, img->ncols, imgin_d);
+  _convolveSeparate(img, gauss_kernel, gaussderiv_kernel, grady, img->nrows, img->ncols, imgin_d);
+
+}
+
+void _KLTComputeGradientsWithMalloc(
+  _KLT_FloatImage img,
+  float sigma,
+  _KLT_FloatImage gradx,
   _KLT_FloatImage grady)
 {
 				
@@ -371,17 +428,33 @@ void _KLTComputeGradients(
   if (fabs(sigma - sigma_last) > 0.05)
     _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
 	
-  _convolveSeparate(img, gaussderiv_kernel, gauss_kernel, gradx);
-  _convolveSeparate(img, gauss_kernel, gaussderiv_kernel, grady);
+  _convolveSeparateWithMalloc(img, gaussderiv_kernel, gauss_kernel, gradx);
+  _convolveSeparateWithMalloc(img, gauss_kernel, gaussderiv_kernel, grady);
 
 }
-	
+
 
 /*********************************************************************
  * _KLTComputeSmoothedImage
  */
 
 void _KLTComputeSmoothedImage(
+  _KLT_FloatImage img,
+  float sigma,
+  _KLT_FloatImage smooth, float* imgin_d)
+{
+  /* Output image must be large enough to hold result */
+  assert(smooth->ncols >= img->ncols);
+  assert(smooth->nrows >= img->nrows);
+
+  /* Compute kernel, if necessary; gauss_deriv is not used */
+  if (fabs(sigma - sigma_last) > 0.05)
+    _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
+
+  _convolveSeparate(img, gauss_kernel, gauss_kernel, smooth, img->nrows, img->ncols, imgin_d);
+}
+
+void _KLTComputeSmoothedImageWithMalloc(
   _KLT_FloatImage img,
   float sigma,
   _KLT_FloatImage smooth)
@@ -394,7 +467,21 @@ void _KLTComputeSmoothedImage(
   if (fabs(sigma - sigma_last) > 0.05)
     _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
 
-  _convolveSeparate(img, gauss_kernel, gauss_kernel, smooth);
+  _convolveSeparateWithMalloc(img, gauss_kernel, gauss_kernel, smooth);
+}
+
+float* newImagePointer(_KLT_FloatImage img){
+  int nrows = img->nrows;
+  int ncols = img->ncols;
+
+  float* imgin_d;
+  int imgSize = nrows * ncols * sizeof(float);
+  cudaMalloc((void**)&imgin_d, imgSize * 2);
+  return imgin_d;
+}
+
+void deleteImagePointer(float* imgPtr){
+  cudaFree(imgPtr);
 }
 
 

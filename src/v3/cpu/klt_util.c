@@ -163,3 +163,13 @@ void _KLTWriteAbsFloatImageToPGM(
   /* Free memory */
   free(byteimg);
 }
+
+void _KLTCopyFloatImage(
+  _KLT_FloatImage src,
+  _KLT_FloatImage dst)
+{
+  assert(src->ncols == dst->ncols);
+  assert(src->nrows == dst->nrows);
+
+  memcpy(dst->data, src->data, src->ncols * src->nrows * sizeof(float));
+}
