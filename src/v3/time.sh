@@ -58,7 +58,7 @@ echo "" >> "$OUTPUT_FILE"
 echo "GPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
 
-for (( i=0; i<2; i++ )); do
+for (( i=0; i<5; i++ )); do
     time_example "Example 3 (GPU)" "example3_gpu"
     echo "" >> "$OUTPUT_FILE"
 done

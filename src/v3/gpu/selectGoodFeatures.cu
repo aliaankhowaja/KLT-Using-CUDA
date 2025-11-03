@@ -304,6 +304,7 @@ void _KLTSelectGoodFeatures(
 {
 
   cudaMalloc((void**)&tc->gpuImg, ncols * nrows * sizeof(float) * 2);
+  
   printf("FDFdf\n\n\n");
   printf("Allocated GPU memory for image processing: %d bytes\n", ncols * nrows * sizeof(float) * 2);
 
