@@ -34,7 +34,7 @@ int main()
   tc->writeInternalImages = FALSE;
   tc->affineConsistencyCheck = -1; /* set this to 2 to turn on affine consistency check */
 
-  img1 = pgmReadFile("../../data/d3/img0.pgm", NULL, &ncols, &nrows);
+  img1 = pgmReadFile("../../data/d0/img0.pgm", NULL, &ncols, &nrows);
   img2 = (unsigned char *)malloc(ncols * nrows * sizeof(unsigned char));
 
 
@@ -44,15 +44,15 @@ int main()
 
   for (i = 1; i < nFrames; i++)
   {
-    sprintf(fnamein, "../../data/d3/img%d.pgm", i);
+    sprintf(fnamein, "../../data/d0/img%d.pgm", i);
     pgmReadFile(fnamein, img2, &ncols, &nrows);
     KLTTrackFeatures(tc, img1, img2, ncols, nrows, fl);
 #ifdef REPLACE
     KLTReplaceLostFeatures(tc, img2, ncols, nrows, fl);
 #endif
     KLTStoreFeatureList(fl, ft, i);
-    // sprintf(fnameout, "feat%d.ppm", i);
-    // KLTWriteFeatureListToPPM(fl, img2, ncols, nrows, fnameout);
+    sprintf(fnameout, "feat%d.ppm", i);
+    KLTWriteFeatureListToPPM(fl, img2, ncols, nrows, fnameout);
   }
 
   
