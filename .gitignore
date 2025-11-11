@@ -7,3 +7,6 @@
 *.out
 example*_gpu
 example*_cpu
+example*_acc
+*.txt
+!v4_findings.txt

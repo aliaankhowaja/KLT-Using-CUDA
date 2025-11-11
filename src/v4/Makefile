@@ -6,8 +6,8 @@ CC_ACC = nvc # NVIDIA HPC C compiler with OpenACC support
 # OpenACC flags
 ACCFLAGS = -acc -gpu=cc86 -Minfo=accel
 
-CFLAGS_CPU = -O3 -Wno-unused-result
-CFLAGS_ACC = $(ACCFLAGS) -O3
+CFLAGS_CPU = -Wno-unused-result
+CFLAGS_ACC = $(ACCFLAGS) 
 
 EXAMPLES = example1.c example2.c example3.c example4.c example5.c
 
