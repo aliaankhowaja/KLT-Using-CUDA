@@ -152,35 +152,22 @@ static void _convolveImageHoriz(
     assert(imgout->ncols >= imgin->ncols);
     assert(imgout->nrows >= imgin->nrows);
 
-    /* Copy kernel data to device constant like memory */
-    float kernel_data[MAX_KERNEL_WIDTH];
-    for (int i = 0; i < kernel_width; i++) {
-        kernel_data[i] = kernel.data[kernel_width - 1 - i]; 
-        
-    }
-
-    #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
-                    copyout(data_out[0:nrows*ncols])
-    {
-        #pragma acc parallel loop gang vector collapse(2) independent
-        for (int row = 0; row < nrows; row++) {
-            for (int col = 0; col < ncols; col++) {
-                int idx = row * ncols + col;
-                
-                /* Boundary handling */
-                if (col < radius || col >= ncols - radius) {
-                    data_out[idx] = 0.0f;
-                } else {
-                    /* Optimized memory access pattern  */
-                    float sum = 0.0f;
-                    int start_p = idx - radius;
-                    
-                    #pragma acc loop seq
-                    for (int k = 0; k < kernel_width; k++) {
-                        sum += data_in[start_p + k] * kernel_data[k];
-                    }
-                    data_out[idx] = sum;
+    // Simple OpenACC without data regions
+    #pragma acc parallel loop copyin(data_in[0:nrows*ncols], kernel) copyout(data_out[0:nrows*ncols])
+    for (int row = 0; row < nrows; row++) {
+        for (int col = 0; col < ncols; col++) {
+            float sum = 0.0f;
+            
+            // Check boundaries inside the loop (less efficient)
+            if (col >= radius && col < ncols - radius) {
+                for (int k = 0; k < kernel_width; k++) {
+                    int p = col - radius + k;
+                    // Direct kernel access without pre-reversing
+                    sum += data_in[row * ncols + p] * kernel.data[kernel_width - 1 - k];
                 }
+                data_out[row * ncols + col] = sum;
+            } else {
+                data_out[row * ncols + col] = 0.0f;
             }
         }
     }
