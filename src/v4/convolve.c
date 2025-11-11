@@ -152,22 +152,35 @@ static void _convolveImageHoriz(
     assert(imgout->ncols >= imgin->ncols);
     assert(imgout->nrows >= imgin->nrows);
 
-    // Simple OpenACC without data regions
-    #pragma acc parallel loop copyin(data_in[0:nrows*ncols], kernel) copyout(data_out[0:nrows*ncols])
-    for (int row = 0; row < nrows; row++) {
-        for (int col = 0; col < ncols; col++) {
-            float sum = 0.0f;
-            
-            // Check boundaries inside the loop (less efficient)
-            if (col >= radius && col < ncols - radius) {
-                for (int k = 0; k < kernel_width; k++) {
-                    int p = col - radius + k;
-                    // Direct kernel access without pre-reversing
-                    sum += data_in[row * ncols + p] * kernel.data[kernel_width - 1 - k];
+    /* Copy kernel data to device constant-like memory */
+    float kernel_data[MAX_KERNEL_WIDTH];
+    for (int i = 0; i < kernel_width; i++) {
+        kernel_data[i] = kernel.data[kernel_width - 1 - i]; /* Pre-reverse for better memory access */
+    }
+
+    /* Optimized OpenACC implementation similar to CUDA pattern */
+    #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
+                    copyout(data_out[0:nrows*ncols])
+    {
+        #pragma acc parallel loop gang vector collapse(2) independent
+        for (int row = 0; row < nrows; row++) {
+            for (int col = 0; col < ncols; col++) {
+                int idx = row * ncols + col;
+                
+                /* Boundary handling - same as CUDA */
+                if (col < radius || col >= ncols - radius) {
+                    data_out[idx] = 0.0f;
+                } else {
+                    /* Optimized memory access pattern - similar to CUDA */
+                    float sum = 0.0f;
+                    int start_p = idx - radius;
+                    
+                    #pragma acc loop seq
+                    for (int k = 0; k < kernel_width; k++) {
+                        sum += data_in[start_p + k] * kernel_data[k];
+                    }
+                    data_out[idx] = sum;
                 }
-                data_out[row * ncols + col] = sum;
-            } else {
-                data_out[row * ncols + col] = 0.0f;
             }
         }
     }
@@ -183,56 +196,32 @@ static void _convolveImageVert(
   ConvolutionKernel kernel,
   _KLT_FloatImage imgout)
 {
-  float *ptrcol = imgin->data;            /* Points to row's first pixel */
-  float *ptrout = imgout->data,  /* Points to next output pixel */
-    *ppp;
-  float sum;
-  int radius = kernel.width / 2;
-  int ncols = imgin->ncols, nrows = imgin->nrows;
-  int i, j, k;
+    float *data_in = imgin->data;
+    float *data_out = imgout->data;
+    int ncols = imgin->ncols;
+    int nrows = imgin->nrows;
+    int kernel_width = kernel.width;
 
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
-
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  /* For each column, do ... */
-  for (i = 0 ; i < ncols ; i++)  {
-
-    /* Zero topmost rows */
-    for (j = 0 ; j < radius ; j++)  {
-      *ptrout = 0.0;
-      ptrout += ncols;
+    // Basic parallelization only
+    #pragma acc parallel loop copyin(data_in[0:nrows*ncols], kernel) copyout(data_out[0:nrows*ncols])
+    for (int col = 0; col < ncols; col++) {
+        for (int row = 0; row < nrows; row++) {
+            int radius = kernel_width / 2;
+            if (row < radius || row >= nrows - radius) {
+                data_out[row * ncols + col] = 0.0f;
+                continue;
+            }
+            
+            float sum = 0.0f;
+            for (int k = 0; k < kernel_width; k++) {
+                int p_row = row - radius + k;
+                // Inefficient memory access pattern
+                sum += data_in[p_row * ncols + col] * kernel.data[k];
+            }
+            data_out[row * ncols + col] = sum;
+        }
     }
-
-    /* Convolve middle rows with kernel */
-    for ( ; j < nrows - radius ; j++)  {
-      ppp = ptrcol + ncols * (j - radius);
-      sum = 0.0;
-      for (k = kernel.width-1 ; k >= 0 ; k--)  {
-        sum += *ppp * kernel.data[k];
-        ppp += ncols;
-      }
-      *ptrout = sum;
-      ptrout += ncols;
-    }
-
-    /* Zero bottommost rows */
-    for ( ; j < nrows ; j++)  {
-      *ptrout = 0.0;
-      ptrout += ncols;
-    }
-
-    ptrcol++;
-    ptrout -= nrows * ncols - 1;
-  }
 }
-
 
 /*********************************************************************
  * _convolveSeparate
