@@ -131,54 +131,59 @@ void _KLTGetKernelWidths(
 
 
 /*********************************************************************
- * _convolveImageHoriz
+ * _convolveImageHoriz  with openacc
  */
+
 
 static void _convolveImageHoriz(
   _KLT_FloatImage imgin,
   ConvolutionKernel kernel,
   _KLT_FloatImage imgout)
 {
-  float *ptrrow = imgin->data;           /* Points to row's first pixel */
-  float *ptrout = imgout->data, /* Points to next output pixel */
-    *ppp;
-  float sum;
-  int radius = kernel.width / 2;
-  int ncols = imgin->ncols, nrows = imgin->nrows;
-  int i, j, k;
+    float *data_in = imgin->data;
+    float *data_out = imgout->data;
+    int ncols = imgin->ncols;
+    int nrows = imgin->nrows;
+    int radius = kernel.width / 2;
+    int kernel_width = kernel.width;
 
-  /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
+    assert(kernel.width % 2 == 1);
+    assert(imgin != imgout);
+    assert(imgout->ncols >= imgin->ncols);
+    assert(imgout->nrows >= imgin->nrows);
 
-  /* Must read from and write to different images */
-  assert(imgin != imgout);
-
-  /* Output image must be large enough to hold result */
-  assert(imgout->ncols >= imgin->ncols);
-  assert(imgout->nrows >= imgin->nrows);
-
-  /* For each row, do ... */
-  for (j = 0 ; j < nrows ; j++)  {
-
-    /* Zero leftmost columns */
-    for (i = 0 ; i < radius ; i++)
-      *ptrout++ = 0.0;
-
-    /* Convolve middle columns with kernel */
-    for ( ; i < ncols - radius ; i++)  {
-      ppp = ptrrow + i - radius;
-      sum = 0.0;
-      for (k = kernel.width-1 ; k >= 0 ; k--)
-        sum += *ppp++ * kernel.data[k];
-      *ptrout++ = sum;
+    /* Copy kernel data to device constant like memory */
+    float kernel_data[MAX_KERNEL_WIDTH];
+    for (int i = 0; i < kernel_width; i++) {
+        kernel_data[i] = kernel.data[kernel_width - 1 - i]; 
+        
     }
 
-    /* Zero rightmost columns */
-    for ( ; i < ncols ; i++)
-      *ptrout++ = 0.0;
-
-    ptrrow += ncols;
-  }
+    #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
+                    copyout(data_out[0:nrows*ncols])
+    {
+        #pragma acc parallel loop gang vector collapse(2) independent
+        for (int row = 0; row < nrows; row++) {
+            for (int col = 0; col < ncols; col++) {
+                int idx = row * ncols + col;
+                
+                /* Boundary handling */
+                if (col < radius || col >= ncols - radius) {
+                    data_out[idx] = 0.0f;
+                } else {
+                    /* Optimized memory access pattern  */
+                    float sum = 0.0f;
+                    int start_p = idx - radius;
+                    
+                    #pragma acc loop seq
+                    for (int k = 0; k < kernel_width; k++) {
+                        sum += data_in[start_p + k] * kernel_data[k];
+                    }
+                    data_out[idx] = sum;
+                }
+            }
+        }
+    }
 }
 
 
