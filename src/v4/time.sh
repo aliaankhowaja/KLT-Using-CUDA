@@ -29,9 +29,9 @@ declare -a gpu_times
 echo "Building CPU version..." >&2
 make cpu >&2
 
-# Build GPU version
-echo "Building GPU version..." >&2
-make gpu >&2
+# Build OpenACC version
+echo "Building OpenACC version..." >&2
+make openacc >&2
 
 echo "" >&2
 echo "Running benchmarks..." >&2
@@ -44,8 +44,8 @@ for (( i=0; i<NUM_ITERATIONS; i++ )); do
     cpu_time=$(time_example "example3_cpu")
     cpu_times+=($cpu_time)
     
-    echo "Running GPU build"
-    gpu_time=$(time_example "example3_gpu")
+    echo "Running OpenACC build"
+    gpu_time=$(time_example "example3_acc")
     gpu_times+=($gpu_time)
 done
 
@@ -73,12 +73,12 @@ fi
 
 # Write results to file
 {
-    echo "KLT Example 3 Performance Comparison"
+    echo "KLT Example 3 Performance Comparison (OpenACC)"
     echo "Timing Results - $(date)"
     echo "========================================"
     echo ""
     echo "┌────────────┬──────────────┬──────────────┬─────────┐"
-    echo "│ Iteration  │ CPU Time (s) │ GPU Time (s) │ Speedup │"
+    echo "│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │"
     echo "├────────────┼──────────────┼──────────────┼─────────┤"
     
     for (( i=0; i<NUM_ITERATIONS; i++ )); do
@@ -94,7 +94,7 @@ fi
     if [ "$speedup" != "N/A" ]; then
         improvement=$(echo "scale=1; ($speedup - 1) * 100" | bc)
         echo "Performance Summary:"
-        echo "  • GPU version is ${speedup}x faster than CPU"
+        echo "  • OpenACC version is ${speedup}x faster than CPU"
         echo "  • Performance improvement: ${improvement}%"
     fi
     

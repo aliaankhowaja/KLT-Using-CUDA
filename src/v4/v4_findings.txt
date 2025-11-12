@@ -1,0 +1,57 @@
+after just running the openacc build
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Wed Nov 12 04:01:41 PM PKT 2025
+========================================
+with writing without -o3 flag
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      439.864 │      125.536 │   3.50x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      439.864 │      125.536 │   3.50x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 3.50x faster than CPU
+  • Performance improvement: 250.00%
+
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Wed Nov 12 04:18:12 PM PKT 2025
+========================================
+with writing 
+with -o3 flag
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      158.461 │      125.291 │   1.26x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      158.461 │      125.291 │   1.26x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 1.26x faster than CPU
+  • Performance improvement: 26.00%
+
+
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Wed Nov 12 04:26:26 PM PKT 2025
+========================================
+
+without write 
+with -o3 flag
+
+
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      101.459 │      110.478 │    .91x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      101.459 │      110.478 │    .91x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is .91x faster than CPU
+  • Performance improvement: -9.00%

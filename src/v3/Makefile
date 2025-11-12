@@ -27,12 +27,12 @@ CUDA_OBJECTS = $(patsubst $(GPU_DIR)/%.cu,$(GPU_DIR)/%.o,$(CUDA_SOURCES))
 
 LIB = -L/usr/local/lib -L/usr/lib
 
-.PHONY: all cpu gpu clean
+.PHONY: all cpu gpu clean clean_cpu clean_gpu
 
 all: cpu
 
-cpu: clean libklt_cpu.a $(EXAMPLES:.c=_cpu)
-gpu: clean libklt_gpu.a $(EXAMPLES:.c=_gpu)
+cpu: clean_cpu libklt_cpu.a $(EXAMPLES:.c=_cpu)
+gpu: clean_gpu libklt_gpu.a $(EXAMPLES:.c=_gpu)
 
 # Rule to build .o from .cu files in the gpu directory
 $(GPU_DIR)/%.o: $(GPU_DIR)/%.cu
@@ -60,6 +60,12 @@ example%_cpu: example%.c libklt_cpu.a
 
 example%_gpu: example%.c libklt_gpu.a
 	$(NVCC) -O3 $(NVCCFLAGS) -o $@ $< -L. -lklt_gpu $(LIB) -lm
+
+clean_cpu:
+	rm -f $(CPU_DIR)/*_cpu.o libklt_cpu.a *_cpu
+
+clean_gpu:
+	rm -f $(GPU_DIR)/*.o $(CPU_DIR)/*_acc.o libklt_gpu.a *_gpu
 
 clean:
 	rm -f $(CPU_DIR)/*.o $(GPU_DIR)/*.o *.a *_cpu *_gpu *.tar *.tar.gz \
