@@ -55,3 +55,62 @@ with -o3 flag
 Performance Summary:
   • OpenACC version is .91x faster than CPU
   • Performance improvement: -9.00%
+
+
+
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Fri Nov 14 11:15:42 AM PKT 2025
+========================================
+-openacc pragmans given by ismail
+-d3 without write ppm
+
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      110.943 │       27.399 │   4.04x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      110.943 │       27.399 │   4.04x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 4.04x faster than CPU
+  • Performance improvement: 304.00%
+
+
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Fri Nov 14 11:33:26 AM PKT 2025
+========================================
+
+- openacc pragmas from ismail
+- write to ppm enabled
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      174.713 │      116.528 │   1.49x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      174.713 │      116.528 │   1.49x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 1.49x faster than CPU
+  • Performance improvement: 49.00%
+
+
+KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Fri Nov 14 11:38:54 AM PKT 2025
+========================================
+- ismail's pragmas
+-no write iter 2
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      111.534 │       26.895 │   4.14x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      111.534 │       26.895 │   4.14x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 4.14x faster than CPU
+  • Performance improvement: 314.00%

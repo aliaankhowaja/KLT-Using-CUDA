@@ -46,7 +46,7 @@ all: cpu
 
 cpu: clean_cpu libklt_cpu.a $(EXAMPLES:.c=_cpu)
 
-openacc: clean_acc libklt_acc.a $(EXAMPLES:.c=_acc) rm -f feat*.ppm
+openacc: clean_acc libklt_acc.a $(EXAMPLES:.c=_acc)
 
 gpu: clean_gpu libklt_gpu.a $(EXAMPLES:.c=_gpu)
 
