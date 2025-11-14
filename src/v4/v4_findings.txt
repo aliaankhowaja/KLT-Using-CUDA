@@ -114,3 +114,22 @@ Timing Results - Fri Nov 14 11:38:54 AM PKT 2025
 Performance Summary:
   • OpenACC version is 4.14x faster than CPU
   • Performance improvement: 314.00%
+
+
+
+  KLT Example 3 Performance Comparison (OpenACC)
+Timing Results - Fri Nov 14 01:10:45 PM PKT 2025
+========================================
+
+- new pragmas which resulted in speed down
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │  OpenAcc (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      109.730 │       27.027 │   4.06x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      109.730 │       27.027 │   4.06x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • OpenACC version is 4.06x faster than CPU
+  • Performance improvement: 306.00%

@@ -373,15 +373,9 @@ void _KLTSelectGoodFeatures(
   /* Compute trackability of each image pixel as the minimum
      of the two eigenvalues of the Z matrix */
   {
-    float gx, gy;
-    float gxx, gxy, gyy;
-    int xx, yy;
-    int *ptr;
-    float val;
     unsigned int limit = 1;
     int borderx = tc->borderx;	/* Must not touch cols */
     int bordery = tc->bordery;	/* lost by convolution */
-    int x, y;
     int i;
 	
     if (borderx < window_hw)  borderx = window_hw;
@@ -391,36 +385,58 @@ void _KLTSelectGoodFeatures(
     for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
     limit = limit/2 - 1;
 		
-    /* For most of the pixels in the image, do ... */
-    ptr = pointlist;
-    for (y = bordery ; y < nrows - bordery ; y += tc->nSkippedPixels + 1)
-      for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1)  {
-
-        /* Sum the gradients in the surrounding window */
-        gxx = 0;  gxy = 0;  gyy = 0;
-        for (yy = y-window_hh ; yy <= y+window_hh ; yy++)
-          for (xx = x-window_hw ; xx <= x+window_hw ; xx++)  {
-            gx = *(gradx->data + ncols*yy+xx);
-            gy = *(grady->data + ncols*yy+xx);
-            gxx += gx * gx;
-            gxy += gx * gy;
-            gyy += gy * gy;
-          }
-
-        /* Store the trackability of the pixel as the minimum
-           of the two eigenvalues */
-        *ptr++ = x;
-        *ptr++ = y;
-        val = _minEigenvalue(gxx, gxy, gyy);
-        if (val > limit)  {
-          KLTWarning("(_KLTSelectGoodFeatures) minimum eigenvalue %f is "
-                     "greater than the capacity of an int; setting "
-                     "to maximum value", val);
-          val = (float) limit;
+    /* Calculate number of candidate pixels */
+    int nrows_proc = (nrows - 2*bordery);
+    int ncols_proc = (ncols - 2*borderx);
+    int skip = tc->nSkippedPixels + 1;
+    int ny = (nrows_proc + skip - 1) / skip;
+    int nx = (ncols_proc + skip - 1) / skip;
+    int max_points = ny * nx;
+    
+    /* OpenACC parallel region for computing eigenvalues */
+    float *gradx_data = gradx->data;
+    float *grady_data = grady->data;
+    
+    #pragma acc data copyin(gradx_data[0:ncols*nrows], grady_data[0:ncols*nrows]) \
+                    copyout(pointlist[0:max_points*3])
+    {
+        #pragma acc parallel loop gang vector collapse(2) independent
+        for (int iy = 0; iy < ny; iy++) {
+            for (int ix = 0; ix < nx; ix++) {
+                int y = bordery + iy * skip;
+                int x = borderx + ix * skip;
+                
+                if (y < nrows - bordery && x < ncols - borderx) {
+                    /* Sum the gradients in the surrounding window */
+                    float gxx = 0, gxy = 0, gyy = 0;
+                    
+                    #pragma acc loop seq
+                    for (int yy = y-window_hh ; yy <= y+window_hh ; yy++) {
+                        #pragma acc loop seq
+                        for (int xx = x-window_hw ; xx <= x+window_hw ; xx++) {
+                            float gx = gradx_data[ncols*yy+xx];
+                            float gy = grady_data[ncols*yy+xx];
+                            gxx += gx * gx;
+                            gxy += gx * gy;
+                            gyy += gy * gy;
+                        }
+                    }
+                    
+                    /* Compute minimum eigenvalue */
+                    float val = (gxx + gyy - sqrtf((gxx - gyy)*(gxx - gyy) + 4*gxy*gxy))/2.0f;
+                    if (val > limit) val = (float) limit;
+                    
+                    /* Store in pointlist */
+                    int idx = iy * nx + ix;
+                    pointlist[idx*3 + 0] = x;
+                    pointlist[idx*3 + 1] = y;
+                    pointlist[idx*3 + 2] = (int) val;
+                }
+            }
         }
-        *ptr++ = (int) val;
-        npoints++;
-      }
+    }
+    
+    npoints = ny * nx;
   }
 			
   /* Sort the features  */
