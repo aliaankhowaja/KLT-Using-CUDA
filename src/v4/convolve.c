@@ -154,7 +154,7 @@ static void _convolveImageHoriz(
     /* Copy kernel data to device constantlike memory */
     float kernel_data[MAX_KERNEL_WIDTH];
     for (int i = 0; i < kernel_width; i++) {
-        kernel_data[i] = kernel.data[kernel_width - 1 - i]; /* Pre-reverse */
+        kernel_data[i] = kernel.data[kernel_width - 1 - i]; 
     }
 
     #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
@@ -165,11 +165,9 @@ static void _convolveImageHoriz(
             for (int col = 0; col < ncols; col++) {
                 int idx = row * ncols + col;
                 
-                /* Boundary handling  */
                 if (col < radius || col >= ncols - radius) {
                     data_out[idx] = 0.0f;
                 } else {
-                    /* Optimized memory access pattern  */
                     float sum = 0.0f;
                     int start_p = idx - radius;
                     
@@ -207,7 +205,7 @@ static void _convolveImageVert(
 
     float kernel_data[MAX_KERNEL_WIDTH];
     for (int i = 0; i < kernel_width; i++) {
-        kernel_data[i] = kernel.data[kernel_width - 1 - i]; /* Pre-reverse */
+        kernel_data[i] = kernel.data[kernel_width - 1 - i]; 
     }
 
     #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
@@ -218,11 +216,9 @@ static void _convolveImageVert(
             for (int row = 0; row < nrows; row++) {
                 int idx = row * ncols + col;
                 
-                /* Boundary handling */
                 if (row < radius || row >= nrows - radius) {
                     data_out[idx] = 0.0f;
                 } else {
-                    /* vertical memory access pattern */
                     float sum = 0.0f;
                     int start_p = idx - radius * ncols;
                     
