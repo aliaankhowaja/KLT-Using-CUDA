@@ -134,7 +134,6 @@ void _KLTGetKernelWidths(
  * _convolveImageHoriz
  */
 
-
 static void _convolveImageHoriz(
   _KLT_FloatImage imgin,
   ConvolutionKernel kernel,
@@ -144,46 +143,37 @@ static void _convolveImageHoriz(
     float *data_out = imgout->data;
     int ncols = imgin->ncols;
     int nrows = imgin->nrows;
-    int radius = kernel.width / 2;
-    int kernel_width = kernel.width;
+    int kw = kernel.width;
+    int radius = kw / 2;
+    int npix = ncols * nrows;
 
-    assert(kernel.width % 2 == 1);
-    assert(imgin != imgout);
-    assert(imgout->ncols >= imgin->ncols);
-    assert(imgout->nrows >= imgin->nrows);
+    float kernel_rev[MAX_KERNEL_WIDTH];
 
-    /* Copy kernel data to device constantlike memory */
-    float kernel_data[MAX_KERNEL_WIDTH];
-    for (int i = 0; i < kernel_width; i++) {
-        kernel_data[i] = kernel.data[kernel_width - 1 - i]; /* Pre-reverse */
-    }
 
-    #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
-                    copyout(data_out[0:nrows*ncols])
+    #pragma acc data copyin(data_in[0:npix], kernel_rev[0:kw]) copyout(data_out[0:npix])
     {
-        #pragma acc parallel loop gang vector collapse(2) independent
+        #pragma acc parallel loop gang vector collapse(2)
         for (int row = 0; row < nrows; row++) {
             for (int col = 0; col < ncols; col++) {
-                int idx = row * ncols + col;
-                
-                /* Boundary handling  */
-                if (col < radius || col >= ncols - radius) {
-                    data_out[idx] = 0.0f;
-                } else {
-                    /* Optimized memory access pattern  */
-                    float sum = 0.0f;
-                    int start_p = idx - radius;
-                    
-                    #pragma acc loop seq
-                    for (int k = 0; k < kernel_width; k++) {
-                        sum += data_in[start_p + k] * kernel_data[k];
-                    }
-                    data_out[idx] = sum;
+
+                float sum = 0.0f;
+
+                // Fast boundary handling — skip borders
+                if (col >= radius && col < ncols - radius) {
+
+                    int base = row * ncols + (col - radius);
+
+                  //   #pragma acc loop seq
+                    for (int k = 0; k < kw; k++)
+                        sum += data_in[base + k] * kernel_rev[k];
                 }
+
+                data_out[row * ncols + col] = sum;
             }
         }
     }
 }
+
 
 /*********************************************************************
  * _convolveImageVert with OpenACC
@@ -207,9 +197,7 @@ static void _convolveImageVert(
     assert(imgout->nrows >= imgin->nrows);
 
     float kernel_data[MAX_KERNEL_WIDTH];
-    for (int i = 0; i < kernel_width; i++) {
-        kernel_data[i] = kernel.data[kernel_width - 1 - i]; /* Pre-reverse */
-    }
+ 
 
     #pragma acc data copyin(data_in[0:nrows*ncols], kernel_data[0:kernel_width]) \
                     copyout(data_out[0:nrows*ncols])
@@ -227,7 +215,7 @@ static void _convolveImageVert(
                     float sum = 0.0f;
                     int start_p = idx - radius * ncols;
                     
-                    #pragma acc loop seq
+                    //#pragma acc loop seq
                     for (int k = 0; k < kernel_width; k++) {
                         sum += data_in[start_p + k * ncols] * kernel_data[k];
                     }
