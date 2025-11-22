@@ -88,3 +88,62 @@ the default kernel 16x16
 16x32 kernel:
 6.957, 
 
+
+
+d3 1 cuda malloc:
+
+3.858, 
+3.639, 
+3.624, 
+3.630, 
+3.645, 
+3.549, 
+3.667, 
+3.596, 
+3.543, 
+
+d3 1 cuda malloc (pinned mem):
+
+GPU Versions:
+-------------
+5.654, 
+5.030, 
+5.186, 
+5.361, 
+5.337, 
+
+
+
+KLT Example 3 Performance Comparison
+Timing Results - Wed Nov 12 03:19:34 PM PKT 2025
+========================================
+when no write and feature 150 frames 250
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │ GPU Time (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      376.654 │       15.388 │  24.47x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      376.654 │       15.388 │  24.47x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • GPU version is 24.47x faster than CPU
+  • Performance improvement: 2347.00%
+
+
+
+KLT Example 3 Performance Comparison
+Timing Results - Wed Nov 12 03:42:07 PM PKT 2025
+========================================
+with writing
+┌────────────┬──────────────┬──────────────┬─────────┐
+│ Iteration  │ CPU Time (s) │ GPU Time (s) │ Speedup │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ 1          │      443.113 │      124.882 │   3.54x │
+├────────────┼──────────────┼──────────────┼─────────┤
+│ Average    │      443.113 │      124.882 │   3.54x │
+└────────────┴──────────────┴──────────────┴─────────┘
+
+Performance Summary:
+  • GPU version is 3.54x faster than CPU
+  • Performance improvement: 254.00%
