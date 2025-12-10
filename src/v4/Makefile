@@ -18,7 +18,7 @@ CFLAGS_ACC = $(ACCFLAGS)
 CFLAGS = -I$(CPU_DIR)
 NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -I$(CPU_DIR) -I$(GPU_DIR)
 
-EXAMPLES = example1.c example2.c example3.c example4.c example5.c
+EXAMPLES = example1.c example2.c example3.c example4.c example5.c example6.c
 
 # All source files for the library
 SOURCES = convolve.c error.c pnmio.c pyramid.c selectGoodFeatures.c \
@@ -46,7 +46,7 @@ all: cpu
 
 cpu: clean_cpu libklt_cpu.a $(EXAMPLES:.c=_cpu)
 
-openacc: clean_acc libklt_acc.a $(EXAMPLES:.c=_acc) rm -f feat*.ppm
+openacc: clean_acc libklt_acc.a $(EXAMPLES:.c=_acc)
 
 gpu: clean_gpu libklt_gpu.a $(EXAMPLES:.c=_gpu)
 
