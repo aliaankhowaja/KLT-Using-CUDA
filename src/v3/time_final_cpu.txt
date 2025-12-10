@@ -4,5 +4,8 @@ Timing Examples
 
 CPU Versions:
 -------------
-11.664, 
-11.755, 
+13.426, 
+13.463, 
+Example 6 (GPU): EXECUTABLE NOT FOUND (example6_gpu)
+
+

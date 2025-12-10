@@ -10,7 +10,7 @@ CUDA_SM_ARCH = sm_86 # specific architecture
 CFLAGS = -I$(CPU_DIR)
 NVCCFLAGS = -arch=$(CUDA_COMPUTE_CAPABILITY) -code=$(CUDA_SM_ARCH) -I$(CPU_DIR) -I$(GPU_DIR)
 
-EXAMPLES = example1.c example2.c example3.c example4.c example5.c
+EXAMPLES = example1.c example2.c example3.c example4.c example5.c example6.c
 
 # C files in cpu directory
 CPU_SOURCES = $(wildcard $(CPU_DIR)/*.c)

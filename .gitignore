@@ -7,3 +7,6 @@
 *.out
 example*_gpu
 example*_cpu
+
+/src/v2/*.pgm
+/src/v3/*.pgm

@@ -47,20 +47,20 @@ echo "" >> "$OUTPUT_FILE"
 echo "GPU Versions:" >> "$OUTPUT_FILE"
 echo "-------------" >> "$OUTPUT_FILE"
 
-for (( i=0; i<1; i++ )); do
-    time_example "Example 3 (GPU)" "example3_gpu"
+for (( i=0; i<5; i++ )); do
+    time_example "Example 6 (GPU)" "example6_gpu"
     echo "" >> "$OUTPUT_FILE"
 done
 
-make cpu
-echo "" >> "$OUTPUT_FILE"
-echo "cPU Versions:" >> "$OUTPUT_FILE"
-echo "-------------" >> "$OUTPUT_FILE"
+# make cpu
+# echo "" >> "$OUTPUT_FILE"
+# echo "cPU Versions:" >> "$OUTPUT_FILE"
+# echo "-------------" >> "$OUTPUT_FILE"
 
-for (( i=0; i<1; i++ )); do
-    time_example "Example 3 (cPU)" "example3_cpu"
-    echo "" >> "$OUTPUT_FILE"
-done
+# for (( i=0; i<1; i++ )); do
+#     time_example "Example 3 (cPU)" "example3_cpu"
+#     echo "" >> "$OUTPUT_FILE"
+# done
 
 echo "Timing complete! Results saved to $OUTPUT_FILE"
 cat "$OUTPUT_FILE"

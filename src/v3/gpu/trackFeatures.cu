@@ -1249,11 +1249,11 @@ void KLTTrackFeatures(
 	KLT_BOOL floatimg1_created = FALSE;
 	int i;
 
-	if (KLT_verbose >= 1)  {
-		fprintf(stderr,  "(KLT) Tracking %d features in a %d by %d image...  ",
-			KLTCountRemainingFeatures(featurelist), ncols, nrows);
-		fflush(stderr);
-	}
+	// if (KLT_verbose >= 1)  {
+	// 	fprintf(stderr,  "(KLT) Tracking %d features in a %d by %d image...  ",
+	// 		KLTCountRemainingFeatures(featurelist), ncols, nrows);
+	// 	fflush(stderr);
+	// }
 
 	/* Check window size (and correct if necessary) */
 	if (tc->window_width % 2 != 1) {
@@ -1518,13 +1518,13 @@ void KLTTrackFeatures(
 	_KLTFreePyramid(pyramid1_gradx);
 	_KLTFreePyramid(pyramid1_grady);
 
-	if (KLT_verbose >= 1)  {
-		fprintf(stderr,  "\n\t%d features successfully tracked.\n",
-			KLTCountRemainingFeatures(featurelist));
-		if (tc->writeInternalImages)
-			fprintf(stderr,  "\tWrote images to 'kltimg_tf*.pgm'.\n");
-		fflush(stderr);
-	}
+	// if (KLT_verbose >= 1)  {
+	// 	fprintf(stderr,  "\n\t%d features successfully tracked.\n",
+	// 		KLTCountRemainingFeatures(featurelist));
+	// 	if (tc->writeInternalImages)
+	// 		fprintf(stderr,  "\tWrote images to 'kltimg_tf*.pgm'.\n");
+	// 	fflush(stderr);
+	// }
 
 }
 

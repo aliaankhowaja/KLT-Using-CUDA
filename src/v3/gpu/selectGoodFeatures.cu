@@ -479,11 +479,11 @@ void KLTSelectGoodFeatures(
   int nrows,
   KLT_FeatureList fl)
 {
-  if (KLT_verbose >= 1)  {
-    fprintf(stderr,  "(KLT) Selecting the %d best features "
-            "from a %d by %d image...  ", fl->nFeatures, ncols, nrows);
-    fflush(stderr);
-  }
+  // if (KLT_verbose >= 1)  {
+  //   fprintf(stderr,  "(KLT) Selecting the %d best features "
+  //           "from a %d by %d image...  ", fl->nFeatures, ncols, nrows);
+  //   fflush(stderr);
+  // }
 
   _KLTSelectGoodFeatures(tc, img, ncols, nrows, 
                          fl, SELECTING_ALL);
